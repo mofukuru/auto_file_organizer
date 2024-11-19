@@ -1,6 +1,6 @@
 {
-	"id": "auto-file-move-plugin",
-	"name": "Audo File Move Plugin",
+	"id": "auto-file-organizer",
+	"name": "Auto File Organizer",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
 	"description": "Automatically organizes files into folders based on their extensions.",

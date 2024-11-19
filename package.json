@@ -1,15 +1,17 @@
 {
-	"name": "auto-file-move-plugin",
+	"name": "auto-file-organizer",
 	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"description": "Automatically organizes files into folders based on their extensions.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": [],
-	"author": "",
+	"keywords": [
+		"file"
+	],
+	"author": "mofukuru",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
