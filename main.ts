@@ -1,7 +1,7 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, Notice } from "obsidian";
 
 interface AutoFileMoveSettings {
-	folderMapping: Record<string, string>; // 拡張子→フォルダのマッピング
+	folderMapping: Record<string, string>; // mapping from extension to folder
 }
 
 const DEFAULT_SETTINGS: AutoFileMoveSettings = {
@@ -40,15 +40,14 @@ export default class AutoFileMovePlugin extends Plugin {
 
 			try {
 				await this.app.vault.rename(file, targetPath);
-				console.log(`Moved file ${file.name} to ${targetFolder}`);
-				return true; // ファイルが移動された
+				return true; // file moved
 			} catch (err) {
 				console.error(`Failed to move file ${file.name}:`, err);
 			}
 		} else {
 			console.log(`No folder mapping found for extension: ${extension}`);
 		}
-		return false; // ファイルは移動されなかった
+		return false; // file not moved
 	}
 
 	async ensureFolderExists(folderPath: string) {
@@ -64,7 +63,6 @@ export default class AutoFileMovePlugin extends Plugin {
 	async saveSettings() {
 		await this.saveData(this.settings);
 		if (Object.keys(this.settings.folderMapping).length > 0) {
-			console.log("Settings saved. Organizing Vault...");
 			await this.organizeVault();
 		}
 	}
@@ -80,13 +78,11 @@ export default class AutoFileMovePlugin extends Plugin {
 			}
 		}
 
-		// 差分についての通知
+		// notice of diff
 		if (movedFiles.length > 0) {
 			new Notice(`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`);
-			console.log(`Moved files: ${movedFiles}`);
 		} else {
 			new Notice("No files were moved.");
-			console.log("No files moved during reorganization.");
 		}
 	}
 }
@@ -99,32 +95,11 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
-	async getAllFolders(): Promise<string[]> {
-		const folders: Set<string> = new Set();
-		const addFoldersRecursively = (path: string) => {
-			const abstractFile = this.app.vault.getAbstractFileByPath(path);
-
-			if (abstractFile instanceof TFolder) {
-				folders.add(abstractFile.path);
-				abstractFile.children.forEach(child => {
-					if (child instanceof TFolder) {
-						addFoldersRecursively(child.path);
-					}
-				});
-			}
-		};
-
-		addFoldersRecursively("/");
-		return Array.from(folders).sort();
-	}
-
 	async display(): Promise<void> {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Auto File Move Plugin Settings" });
-
-		// フォルダ一覧を取得
+		// get all folders
 		const allFolders = await this.getAllFolders();
 
 		for (const [extension, folder] of Object.entries(this.plugin.settings.folderMapping)) {
@@ -132,12 +107,12 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 				.setName(`Extension: ${extension}`)
 				.setDesc("Change the folder for this extension")
 				.addDropdown(dropdown => {
-					// ドロップダウンの初期値を設定
+					// init dropdown
 					dropdown.addOption("", "Select folder...");
 					allFolders.forEach(f => dropdown.addOption(f, f));
 					dropdown.setValue(folder);
 
-					// ドロップダウンの変更を処理
+					// changes dropdown
 					dropdown.onChange(async (value) => {
 						if (value) {
 							this.plugin.settings.folderMapping[extension] = value;
@@ -162,7 +137,7 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 		let newFolder = "";
 
 		new Setting(containerEl)
-			.setName("Add New Mapping")
+			.setName("Add new mapping")
 			.setDesc("Add a new extension and target folder")
 			.addText(text => text
 				.setPlaceholder("Enter extension (e.g., docx)")
