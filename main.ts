@@ -100,7 +100,7 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		// get all folders
-		const allFolders = await this.getAllFolders();
+		const allFolders = this.app.vault.getAllFolders();
 
 		for (const [extension, folder] of Object.entries(this.plugin.settings.folderMapping)) {
 			new Setting(containerEl)
@@ -109,7 +109,7 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 				.addDropdown(dropdown => {
 					// init dropdown
 					dropdown.addOption("", "Select folder...");
-					allFolders.forEach(f => dropdown.addOption(f, f));
+					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
 					dropdown.setValue(folder);
 
 					// changes dropdown
@@ -145,7 +145,7 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 			)
 			.addDropdown(dropdown => {
 				dropdown.addOption("", "Select folder...");
-				allFolders.forEach(folder => dropdown.addOption(folder, folder));
+				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
 				dropdown.onChange(value => newFolder = value);
 			})
 			.addButton(btn => {
