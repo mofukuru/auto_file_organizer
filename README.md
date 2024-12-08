@@ -2,9 +2,6 @@
 
 The custom Obsidian plugin, "Auto File Organizer," automatically organizes files into specified folders based on their extensions. It is an essential tool for users seeking efficient file organization.
 
-> ⚠️ **Note**
-> This plugin is currently in its pre-release version. Its stability and compatibility are not fully guaranteed. If you encounter any issues, your feedback is highly appreciated.
-
 ---
 
 ## Automatic File Organization Feature
