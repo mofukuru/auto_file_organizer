@@ -36,6 +36,17 @@ export default class AutoFileMovePlugin extends Plugin {
 		);
 
 		this.registerEvent(
+			this.app.vault.on("rename", async (file: TFile, oldPath) => {
+				if (!(file instanceof TFile)) return;
+
+				const isInRoot = !file.path.includes('/');
+				if (!isInRoot) return;
+
+				await this.handleFile(file);
+			})
+		);
+
+		this.registerEvent(
 			this.app.metadataCache.on("changed", async (file: TFile) => {
 				await this.handleFile(file);
 			})
@@ -110,19 +121,17 @@ export default class AutoFileMovePlugin extends Plugin {
 
 		// priority
 		if (this.settings.priority === "tag") {
-			// tag first: extension -> tag
-			const movedByExtension = await moveByExtension();
-			if (movedByExtension) {
-				const movedByTag = await moveByTag();
-				return movedByTag ? file.name : null;
-			}
-		} else if (this.settings.priority === "extension") {
-			// extension first: tag -> extension
 			const movedByTag = await moveByTag();
-			if (movedByTag) {
-				const movedByExtension = await moveByExtension();
-				return movedByExtension ? file.name : null;
-			}
+			if (movedByTag) return file.name;
+
+			const movedByExtension = await moveByExtension();
+			return movedByExtension ? file.name : null;
+		} else if (this.settings.priority === "extension") {
+			const movedByExtension = await moveByExtension();
+			if (movedByExtension) return file.name;
+
+			const movedByTag = await moveByTag();
+			return movedByTag ? file.name : null;
 		}
 
 		console.log(`No suitable folder mapping found for file: ${file.name}`);
@@ -146,25 +155,6 @@ export default class AutoFileMovePlugin extends Plugin {
 		}
 	}
 
-	// async organizeVault() {
-	// 	const files = this.app.vault.getFiles();
-	// 	const movedFiles: string[] = [];
-
-	// 	for (const file of files) {
-	// 		const moved = await this.handleFile(file);
-	// 		if (moved) {
-	// 			movedFiles.push(moved);
-	// 		}
-	// 	}
-
-	// 	// notice of diff
-	// 	if (movedFiles.length > 0) {
-	// 		new Notice(`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`);
-	// 	} else {
-	// 		new Notice("No files were moved.");
-	// 	}
-	// }
-
 	async organizeVault() {
 		const files = this.app.vault.getFiles();
 		const movedFiles: string[] = [];
@@ -184,6 +174,33 @@ export default class AutoFileMovePlugin extends Plugin {
 		} else {
 			new Notice("No files were moved.");
 		}
+	}
+	async updateTagMappingFromExistingFiles() {
+		const allFiles = this.app.vault.getFiles();
+		const tagToFolderMap: Record<string, string> = {};
+
+		for (const file of allFiles) {
+			const metadata = this.app.metadataCache.getFileCache(file);
+			if (!metadata) continue;
+
+			const tags = getAllTags(metadata);
+			if (tags && tags.length > 0) {
+				for (const tag of tags) {
+					const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
+					if (!tagToFolderMap[tag]) {
+						tagToFolderMap[tag] = folderName;
+					}
+				}
+			}
+		}
+
+		this.settings.tagMapping = {
+			...this.settings.tagMapping,
+			...tagToFolderMap,
+		};
+
+		await this.saveSettings();
+		new Notice(`update tag-to-folder mapping.`);
 	}
 
 }
@@ -234,66 +251,66 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 				});
 			});
 
-		if (this.plugin.settings.extensionEnabled) {
-			// Get all folders
-			const allFolders = this.app.vault.getAllFolders();
+		// if (this.plugin.settings.extensionEnabled) {
+		// Get all folders
+		const allFolders = this.app.vault.getAllFolders();
 
-			for (const [extension, folder] of Object.entries(this.plugin.settings.folderMapping)) {
-				new Setting(containerEl)
-					.setName(`Extension: ${extension}`)
-					.setDesc("Change the folder for this extension")
-					.addDropdown(dropdown => {
-						dropdown.addOption("", "Select folder...");
-						allFolders.forEach(f => dropdown.addOption(f.path, f.path));
-						dropdown.setValue(folder);
-
-						dropdown.onChange(async (value) => {
-							if (value) {
-								this.plugin.settings.folderMapping[extension] = value;
-								await this.plugin.saveSettings();
-								new Notice(`Folder for .${extension} files updated to: ${value}`);
-							}
-						});
-					})
-					.addButton(btn =>
-						btn
-							.setButtonText("Delete")
-							.setCta()
-							.onClick(async () => {
-								delete this.plugin.settings.folderMapping[extension];
-								await this.plugin.saveSettings();
-								this.display();
-							})
-					);
-			}
-
-			let newExtension = "";
-			let newFolder = "";
-
+		for (const [extension, folder] of Object.entries(this.plugin.settings.folderMapping)) {
 			new Setting(containerEl)
-				.setName("Add new extension mapping")
-				.setDesc("Add a new extension and target folder")
-				.addText(text => text
-					.setPlaceholder("Enter extension (e.g., pdf)")
-					.onChange((value) => newExtension = value.trim())
-				)
+				.setName(`Extension: ${extension}`)
+				.setDesc("Change the folder for this extension")
 				.addDropdown(dropdown => {
 					dropdown.addOption("", "Select folder...");
-					allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-					dropdown.onChange(value => newFolder = value);
+					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+					dropdown.setValue(folder);
+
+					dropdown.onChange(async (value) => {
+						if (value) {
+							this.plugin.settings.folderMapping[extension] = value;
+							await this.plugin.saveSettings();
+							new Notice(`Folder for .${extension} files updated to: ${value}`);
+						}
+					});
 				})
-				.addButton(btn => {
-					btn.setButtonText("Add")
+				.addButton(btn =>
+					btn
+						.setButtonText("Delete")
 						.setCta()
 						.onClick(async () => {
-							if (newExtension && newFolder) {
-								this.plugin.settings.folderMapping[newExtension] = newFolder;
-								await this.plugin.saveSettings();
-								this.display();
-							}
-						});
-				});
+							delete this.plugin.settings.folderMapping[extension];
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
 		}
+
+		let newExtension = "";
+		let newFolder = "";
+
+		new Setting(containerEl)
+			.setName("Add new extension mapping")
+			.setDesc("Add a new extension and target folder")
+			.addText(text => text
+				.setPlaceholder("Enter extension (e.g., pdf)")
+				.onChange((value) => newExtension = value.trim())
+			)
+			.addDropdown(dropdown => {
+				dropdown.addOption("", "Select folder...");
+				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+				dropdown.onChange(value => newFolder = value);
+			})
+			.addButton(btn => {
+				btn.setButtonText("Add")
+					.setCta()
+					.onClick(async () => {
+						if (newExtension && newFolder) {
+							this.plugin.settings.folderMapping[newExtension] = newFolder;
+							await this.plugin.saveSettings();
+							this.display();
+						}
+					});
+			});
+		// }
 
 		// === Tag-to-Folder Mapping Section ===
 		containerEl.createEl("h3", { text: "Tag-to-Folder Mapping" });
@@ -311,64 +328,76 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 				});
 			});
 
-		if (this.plugin.settings.tagEnabled) {
-			const allFolders = this.app.vault.getAllFolders();
+		// if (this.plugin.settings.tagEnabled) {
+		// const allFolders = this.app.vault.getAllFolders();
 
-			for (const [tag, folder] of Object.entries(this.plugin.settings.tagMapping)) {
-				new Setting(containerEl)
-					.setName(`Tag: ${tag}`)
-					.setDesc("Change the folder for this tag")
-					.addDropdown(dropdown => {
-						dropdown.addOption("", "Select folder...");
-						allFolders.forEach(f => dropdown.addOption(f.path, f.path));
-						dropdown.setValue(folder);
-
-						dropdown.onChange(async (value) => {
-							if (value) {
-								this.plugin.settings.tagMapping[tag] = value;
-								await this.plugin.saveSettings();
-								new Notice(`Folder for ${tag} files updated to: ${value}`);
-							}
-						});
-					})
-					.addButton(btn =>
-						btn
-							.setButtonText("Delete")
-							.setCta()
-							.onClick(async () => {
-								delete this.plugin.settings.tagMapping[tag];
-								await this.plugin.saveSettings();
-								this.display();
-							})
-					);
-			}
-
-			let newTag = "";
-			let tagFolder = "";
-
+		for (const [tag, folder] of Object.entries(this.plugin.settings.tagMapping)) {
 			new Setting(containerEl)
-				.setName("Add new tag mapping")
-				.setDesc("Add a new tag and target folder")
-				.addText(text => text
-					.setPlaceholder("Enter tag (e.g., #test1)")
-					.onChange((value) => newTag = value.trim())
-				)
+				.setName(`Tag: ${tag}`)
+				.setDesc("Change the folder for this tag")
 				.addDropdown(dropdown => {
 					dropdown.addOption("", "Select folder...");
-					allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-					dropdown.onChange(value => tagFolder = value);
+					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+					dropdown.setValue(folder);
+
+					dropdown.onChange(async (value) => {
+						if (value) {
+							this.plugin.settings.tagMapping[tag] = value;
+							await this.plugin.saveSettings();
+							new Notice(`Folder for ${tag} files updated to: ${value}`);
+						}
+					});
 				})
-				.addButton(btn => {
-					btn.setButtonText("Add")
+				.addButton(btn =>
+					btn
+						.setButtonText("Delete")
 						.setCta()
 						.onClick(async () => {
-							if (newTag && tagFolder) {
-								this.plugin.settings.tagMapping[newTag] = tagFolder;
-								await this.plugin.saveSettings();
-								this.display();
-							}
-						});
-				});
+							delete this.plugin.settings.tagMapping[tag];
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
 		}
+
+		let newTag = "";
+		let tagFolder = "";
+
+		new Setting(containerEl)
+			.setName("Add new tag mapping")
+			.setDesc("Add a new tag and target folder")
+			.addText(text => text
+				.setPlaceholder("Enter tag (e.g., #test1)")
+				.onChange((value) => newTag = value.trim())
+			)
+			.addDropdown(dropdown => {
+				dropdown.addOption("", "Select folder...");
+				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+				dropdown.onChange(value => tagFolder = value);
+			})
+			.addButton(btn => {
+				btn.setButtonText("Add")
+					.setCta()
+					.onClick(async () => {
+						if (newTag && tagFolder) {
+							this.plugin.settings.tagMapping[newTag] = tagFolder;
+							await this.plugin.saveSettings();
+							this.display();
+						}
+					});
+			});
+		// }
+
+		new Setting(containerEl)
+			.setName("Get tag mapping")
+			.setDesc("Scan the tag in the file and make mapping tag to folder automatically")
+			.addButton((btn) => {
+				btn.setButtonText("Start scan")
+					.setCta()
+					.onClick(async () => {
+						await this.plugin.updateTagMappingFromExistingFiles();
+						this.display();
+					});
+			});
 	}
 }

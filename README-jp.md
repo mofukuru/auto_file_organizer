@@ -1,6 +1,6 @@
-# Auto File Organizer
+# Auto File Organizer(日本語版README情報未更新)
 
-Obsidian用のカスタムプラグイン「Auto File Organizer」は、ファイルの拡張子に基づいて自動的に指定したフォルダへ振り分けることができます。特にファイル整理を効率化したいユーザー向けのツールです。
+Obsidian用のカスタムプラグイン「Auto File Organizer」は、ファイルの拡張子またはタグに基づいて自動的に指定したフォルダへ振り分けることができます。特にファイル整理を効率化したいユーザー向けのツールです。
 
 ---
 

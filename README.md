@@ -1,6 +1,6 @@
 # Auto File Organizer
 
-The custom Obsidian plugin, "Auto File Organizer," automatically organizes files into specified folders based on their extensions. It is an essential tool for users seeking efficient file organization.
+The custom Obsidian plugin, "Auto File Organizer," automatically organizes files into specified folders based on their extensions or tags. It is an essential tool for users seeking efficient file organization.
 
 ---
 
@@ -31,6 +31,10 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
    - In the **Priority** section, you can set whether mappings based on extensions or tags are prioritized.
    - You can enable or disable mappings for extensions and tags individually. Disabled mappings will remain saved.
 
+4. **Automatically Making Mappings based on Tags**:
+   - You can start making mappings based on Tags if you push the button.
+   [!NOTE] The automatically mapping function is pre-released, please make sure you disable mappings for tags then push the button. Check if you intent to be the right mapping before enable mappings for tags.
+
 ---
 
 ## Notes
@@ -54,6 +58,11 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.0.2
+
+- Add command to organize files by hand. If can't organize well automatically you should use the function, even that doesn't work please tell me.
+- Add button that make mappings tags to folder automatically. The function is so simple that I don't consider conflictions. Please take care when you use. I will modify later.
 
 ### 1.0.1
 
