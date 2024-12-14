@@ -40,6 +40,15 @@ export default class AutoFileMovePlugin extends Plugin {
 				await this.handleFile(file);
 			})
 		);
+
+		this.addCommand({
+			id: "organize-files",
+			name: "Organize Files",
+			callback: async () => {
+				await this.organizeVault();
+				new Notice("Files organized");
+			},
+		});
 	}
 
 	async handleFile(file: TFile): Promise<string | null> {
@@ -137,16 +146,37 @@ export default class AutoFileMovePlugin extends Plugin {
 		}
 	}
 
+	// async organizeVault() {
+	// 	const files = this.app.vault.getFiles();
+	// 	const movedFiles: string[] = [];
+
+	// 	for (const file of files) {
+	// 		const moved = await this.handleFile(file);
+	// 		if (moved) {
+	// 			movedFiles.push(moved);
+	// 		}
+	// 	}
+
+	// 	// notice of diff
+	// 	if (movedFiles.length > 0) {
+	// 		new Notice(`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`);
+	// 	} else {
+	// 		new Notice("No files were moved.");
+	// 	}
+	// }
+
 	async organizeVault() {
 		const files = this.app.vault.getFiles();
 		const movedFiles: string[] = [];
 
-		for (const file of files) {
+		const promises = files.map(async (file) => {
 			const moved = await this.handleFile(file);
 			if (moved) {
 				movedFiles.push(moved);
 			}
-		}
+		});
+
+		await Promise.all(promises);
 
 		// notice of diff
 		if (movedFiles.length > 0) {
@@ -155,6 +185,7 @@ export default class AutoFileMovePlugin extends Plugin {
 			new Notice("No files were moved.");
 		}
 	}
+
 }
 
 class AutoFileMoveSettingTab extends PluginSettingTab {
