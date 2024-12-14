@@ -33,8 +33,9 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
 
 4. **Automatically Making Mappings based on Tags**:
    - You can start making mappings based on Tags if you push the button.
-   [!NOTE] The automatically mapping function is pre-released, please make sure you disable mappings for tags then push the button. Check if you intent to be the right mapping before enable mappings for tags.
 
+> [!NOTE]
+> The automatically mapping function is pre-released, please make sure you disable mappings for tags then push the button. Check if you intent to be the right mapping before enable mappings for tags.
 ---
 
 ## Notes
