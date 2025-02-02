@@ -1,29 +1,31 @@
 import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, getAllTags } from "obsidian";
 
-interface AutoFileMoveSettings {
+interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
 	extensionEnabled: boolean;
 	priority: string;
 	folderMapping: Record<string, string>; // mapping from extension to folder
 	tagMapping: Record<string, string>;    // mapping from tag to folder
+	blackList: Record<string, string>;
 }
 
-const DEFAULT_SETTINGS: AutoFileMoveSettings = {
+const DEFAULT_SETTINGS: AutoFileOrganizerSettings = {
 	tagEnabled: false,
 	extensionEnabled: false,
 	priority: "tag",
 	folderMapping: {},
 	tagMapping: {},
+	blackList: {},
 };
 
-export default class AutoFileMovePlugin extends Plugin {
-	settings: AutoFileMoveSettings;
+export default class AutoFileOrganizer extends Plugin {
+	settings: AutoFileOrganizerSettings;
 
 	async onload() {
 		console.log("Auto File Organizer loaded!");
 
 		await this.loadSettings();
-		this.addSettingTab(new AutoFileMoveSettingTab(this.app, this));
+		this.addSettingTab(new AutoFileOrganizerSettingTab(this.app, this));
 
 		this.registerEvent(
 			this.app.vault.on("create", async (file: TFile) => {
@@ -187,7 +189,7 @@ export default class AutoFileMovePlugin extends Plugin {
 			if (tags && tags.length > 0) {
 				for (const tag of tags) {
 					const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
-					if (!tagToFolderMap[tag]) {
+					if (!tagToFolderMap[tag] && !this.settings.blackList[folderName]) {
 						tagToFolderMap[tag] = folderName;
 					}
 				}
@@ -205,10 +207,10 @@ export default class AutoFileMovePlugin extends Plugin {
 
 }
 
-class AutoFileMoveSettingTab extends PluginSettingTab {
-	plugin: AutoFileMovePlugin;
+class AutoFileOrganizerSettingTab extends PluginSettingTab {
+	plugin: AutoFileOrganizer;
 
-	constructor(app: App, plugin: AutoFileMovePlugin) {
+	constructor(app: App, plugin: AutoFileOrganizer) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -217,7 +219,7 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		// === General Settings: Priority Toggle ===
+		// === Priority: Priority Toggle ===
 		// containerEl.createEl("h3", { text: "General Settings" });
 		new Setting(containerEl)
 			.setName("Priority")
@@ -387,6 +389,58 @@ class AutoFileMoveSettingTab extends PluginSettingTab {
 					});
 			});
 		// }
+
+		containerEl.createEl("h3", { text: "Auto Tag Mapping" })
+
+		for (const [folder1, folder2] of Object.entries(this.plugin.settings.blackList)) {
+			new Setting(containerEl)
+				.setName(`Exclude Folder`)
+				.setDesc("Change the folder for this tag")
+				.addDropdown(dropdown => {
+					dropdown.addOption("", "Select folder...");
+					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+					dropdown.setValue(folder2);
+
+					dropdown.onChange(async (value) => {
+						if (value) {
+							this.plugin.settings.tagMapping[folder1] = value;
+							// await this.plugin.saveSettings();
+						}
+					});
+				})
+				.addButton(btn =>
+					btn
+						.setButtonText("Delete")
+						.setCta()
+						.onClick(async () => {
+							delete this.plugin.settings.blackList[folder1];
+							// await this.plugin.saveSettings();
+							this.display();
+						})
+				);
+		}
+
+		let blackList = "";
+
+		new Setting(containerEl)
+			.setName("Set Black Folder List")
+			.setDesc("Indicate what folder is excluded for automatically get tag mapping")
+			.addDropdown(dropdown => {
+				dropdown.addOption("", "Select folder...");
+				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+				dropdown.onChange(value => blackList = value);
+			})
+			.addButton(btn => {
+				btn.setButtonText("Add")
+					.setCta()
+					.onClick(async () => {
+						if (blackList) {
+							this.plugin.settings.blackList[blackList] = blackList;
+							// await this.plugin.saveSettings();
+							this.display();
+						}
+					});
+			});
 
 		new Setting(containerEl)
 			.setName("Get tag mapping")

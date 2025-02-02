@@ -33,6 +33,7 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
 
 4. **Automatically Making Mappings based on Tags**:
    - You can start making mappings based on Tags if you push the button.
+   - You can also set black lists what you don't include folders to make mappings.
 
 > [!NOTE]
 > The automatically mapping function is pre-released, please make sure you disable mappings for tags then push the button. Check if you intent to be the right mapping before enable mappings for tags.
@@ -48,6 +49,9 @@ This plugin has been tested on Windows, macOS, and Android. However, as it is in
 
 This plugin aims to focus solely on the functionality of moving files as specified, and features will be implemented to achieve this goal.
 
+1. Set a rule to priotize tags or extensions, which has less confliction.
+2. Apply priority rules when making mappings automatically.
+
 ---
 
 ## Bug Reports and Feedback
@@ -59,6 +63,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.0.3
+
+- Add Black List, which the folders included in are excluded when automatically making mappings tags to folders.
 
 ### 1.0.2
 
