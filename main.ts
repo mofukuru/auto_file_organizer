@@ -4,18 +4,20 @@ interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
 	extensionEnabled: boolean;
 	priority: string;
-	folderMapping: Record<string, string>; // mapping from extension to folder
+	extensionMapping: Record<string, string>; // mapping from extension to folder
 	tagMapping: Record<string, string>;    // mapping from tag to folder
-	blackList: Record<string, string>;
+	extensionBlackList: Record<string, string>;
+	tagBlackList: Record<string, string>;
 }
 
 const DEFAULT_SETTINGS: AutoFileOrganizerSettings = {
 	tagEnabled: false,
 	extensionEnabled: false,
 	priority: "tag",
-	folderMapping: {},
+	extensionMapping: {},
 	tagMapping: {},
-	blackList: {},
+	extensionBlackList: {},
+	tagBlackList: {},
 };
 
 export default class AutoFileOrganizer extends Plugin {
@@ -29,7 +31,7 @@ export default class AutoFileOrganizer extends Plugin {
 
 		this.registerEvent(
 			this.app.vault.on("create", async (file: TFile) => {
-				if (Object.keys(this.settings.folderMapping).length > 0) {
+				if (Object.keys(this.settings.extensionMapping).length > 0) {
 					await this.handleFile(file);
 				} else {
 					console.log("No folder mapping defined. Skipping file organization.");
@@ -105,7 +107,7 @@ export default class AutoFileOrganizer extends Plugin {
 			if (!this.settings.extensionEnabled) return false;
 
 			const extension = file.extension;
-			const targetFolder = this.settings.folderMapping[extension];
+			const targetFolder = this.settings.extensionMapping[extension];
 			if (targetFolder) {
 				await this.ensureFolderExists(targetFolder);
 				const targetPath = `${targetFolder}/${file.name}`;
@@ -152,7 +154,7 @@ export default class AutoFileOrganizer extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		if (Object.keys(this.settings.folderMapping).length > 0) {
+		if (Object.keys(this.settings.extensionMapping).length > 0) {
 			await this.organizeVault();
 		}
 	}
@@ -177,6 +179,28 @@ export default class AutoFileOrganizer extends Plugin {
 			new Notice("No files were moved.");
 		}
 	}
+	async updateExtensionMappingFromExistingFiles() {
+		const allFiles = this.app.vault.getFiles();
+		const extensionToFolderMap: Record<string, string> = {};
+
+		for (const file of allFiles) {
+			const extension = file.extension;
+			if (!extension) continue;
+
+			const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
+			if (!extensionToFolderMap[extension] && !this.settings.extensionBlackList[folderName]) {
+				extensionToFolderMap[extension] = folderName;
+			}
+		}
+
+		this.settings.extensionMapping = {
+			...this.settings.extensionMapping,
+			...extensionToFolderMap,
+		};
+
+		await this.saveSettings();
+		new Notice(`update extension-to-folder mapping`);
+	}
 	async updateTagMappingFromExistingFiles() {
 		const allFiles = this.app.vault.getFiles();
 		const tagToFolderMap: Record<string, string> = {};
@@ -189,7 +213,7 @@ export default class AutoFileOrganizer extends Plugin {
 			if (tags && tags.length > 0) {
 				for (const tag of tags) {
 					const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
-					if (!tagToFolderMap[tag] && !this.settings.blackList[folderName]) {
+					if (!tagToFolderMap[tag] && !this.settings.tagBlackList[folderName]) {
 						tagToFolderMap[tag] = folderName;
 					}
 				}
@@ -204,7 +228,6 @@ export default class AutoFileOrganizer extends Plugin {
 		await this.saveSettings();
 		new Notice(`update tag-to-folder mapping.`);
 	}
-
 }
 
 class AutoFileOrganizerSettingTab extends PluginSettingTab {
@@ -257,7 +280,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		// Get all folders
 		const allFolders = this.app.vault.getAllFolders();
 
-		for (const [extension, folder] of Object.entries(this.plugin.settings.folderMapping)) {
+		for (const [extension, folder] of Object.entries(this.plugin.settings.extensionMapping)) {
 			new Setting(containerEl)
 				.setName(`Extension: ${extension}`)
 				.setDesc("Change the folder for this extension")
@@ -268,7 +291,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 
 					dropdown.onChange(async (value) => {
 						if (value) {
-							this.plugin.settings.folderMapping[extension] = value;
+							this.plugin.settings.extensionMapping[extension] = value;
 							await this.plugin.saveSettings();
 							new Notice(`Folder for .${extension} files updated to: ${value}`);
 						}
@@ -279,7 +302,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 						.setButtonText("Delete")
 						.setCta()
 						.onClick(async () => {
-							delete this.plugin.settings.folderMapping[extension];
+							delete this.plugin.settings.extensionMapping[extension];
 							await this.plugin.saveSettings();
 							this.display();
 						})
@@ -306,13 +329,73 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						if (newExtension && newFolder) {
-							this.plugin.settings.folderMapping[newExtension] = newFolder;
+							this.plugin.settings.extensionMapping[newExtension] = newFolder;
 							await this.plugin.saveSettings();
 							this.display();
 						}
 					});
 			});
 		// }
+
+		containerEl.createEl("h3", { text: "Auto Extension Mapping" });
+
+		for (const [folder1, folder2] of Object.entries(this.plugin.settings.extensionBlackList)) {
+			new Setting(containerEl)
+				.setName(`Exclude Folder`)
+				.setDesc("This folder is excluded when pushing get extension button")
+				.addDropdown(dropdown => {
+					dropdown.addOption("", "Select folder...");
+					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+					dropdown.setValue(folder2);
+
+					dropdown.onChange(async (value) => {
+						if (value) {
+							this.plugin.settings.extensionMapping[folder1] = value;
+						}
+					});
+				})
+				.addButton(btn =>
+					btn
+						.setButtonText("Delete")
+						.setCta()
+						.onClick(async () => {
+							delete this.plugin.settings.extensionBlackList[folder1];
+							this.display();
+						})
+				);
+		}
+
+		let eblackList = "";
+
+		new Setting(containerEl)
+			.setName("Set Black Folder List")
+			.setDesc("Indicate what folder is excluded for automatically get extension mapping")
+			.addDropdown(dropdown => {
+				dropdown.addOption("", "Select folder...");
+				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+				dropdown.onChange(value => eblackList = value);
+			})
+			.addButton(btn => {
+				btn.setButtonText("Add")
+					.onClick(async () => {
+						if (eblackList) {
+							this.plugin.settings.extensionBlackList[eblackList] = eblackList;
+							this.display();
+						}
+					});
+			});
+
+		new Setting(containerEl)
+			.setName("Get extension mapping")
+			.setDesc("Scan the extension in the file and make mapping extension to folder automatically")
+			.addButton((btn) => {
+				btn.setButtonText("Start scan")
+					.setCta()
+					.onClick(async () => {
+						await this.plugin.updateExtensionMappingFromExistingFiles();
+						this.display();
+					});
+			});
 
 		// === Tag-to-Folder Mapping Section ===
 		containerEl.createEl("h3", { text: "Tag-to-Folder Mapping" });
@@ -392,10 +475,10 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 
 		containerEl.createEl("h3", { text: "Auto Tag Mapping" })
 
-		for (const [folder1, folder2] of Object.entries(this.plugin.settings.blackList)) {
+		for (const [folder1, folder2] of Object.entries(this.plugin.settings.tagBlackList)) {
 			new Setting(containerEl)
 				.setName(`Exclude Folder`)
-				.setDesc("Change the folder for this tag")
+				.setDesc("This folder is excluded when pushing get tag mapping button")
 				.addDropdown(dropdown => {
 					dropdown.addOption("", "Select folder...");
 					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
@@ -413,7 +496,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 						.setButtonText("Delete")
 						.setCta()
 						.onClick(async () => {
-							delete this.plugin.settings.blackList[folder1];
+							delete this.plugin.settings.tagBlackList[folder1];
 							// await this.plugin.saveSettings();
 							this.display();
 						})
@@ -435,7 +518,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						if (blackList) {
-							this.plugin.settings.blackList[blackList] = blackList;
+							this.plugin.settings.tagBlackList[blackList] = blackList;
 							// await this.plugin.saveSettings();
 							this.display();
 						}
