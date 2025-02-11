@@ -31,12 +31,10 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
    - In the **Priority** section, you can set whether mappings based on extensions or tags are prioritized.
    - You can enable or disable mappings for extensions and tags individually. Disabled mappings will remain saved.
 
-4. **Automatically Making Mappings based on Tags**:
-   - You can start making mappings based on Tags if you push the button.
+4. **Automatically Making Mappings based on Extensions or Tags**:
+   - You can start making mappings based on Extensions or Tags if you push the button.
    - You can also set black lists what you don't include folders to make mappings.
 
-> [!NOTE]
-> The automatically mapping function is pre-released, please make sure you disable mappings for tags then push the button. Check if you intent to be the right mapping before enable mappings for tags.
 ---
 
 ## Notes
@@ -63,6 +61,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.0.4
+
+- Auto mapping function and black list are also added to extensions.
 
 ### 1.0.3
 

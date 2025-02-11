@@ -341,19 +341,19 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 
 		for (const [folder1, folder2] of Object.entries(this.plugin.settings.extensionBlackList)) {
 			new Setting(containerEl)
-				.setName(`Exclude Folder`)
+				.setName(`Exclude "${folder1}"`)
 				.setDesc("This folder is excluded when pushing get extension button")
-				.addDropdown(dropdown => {
-					dropdown.addOption("", "Select folder...");
-					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
-					dropdown.setValue(folder2);
+				// .addDropdown(dropdown => {
+				// 	dropdown.addOption("", "Select folder...");
+				// 	allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+				// 	dropdown.setValue(folder2);
 
-					dropdown.onChange(async (value) => {
-						if (value) {
-							this.plugin.settings.extensionMapping[folder1] = value;
-						}
-					});
-				})
+				// 	dropdown.onChange(async (value) => {
+				// 		if (value) {
+				// 			this.plugin.settings.extensionMapping[folder1] = value;
+				// 		}
+				// 	});
+				// })
 				.addButton(btn =>
 					btn
 						.setButtonText("Delete")
@@ -477,20 +477,20 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 
 		for (const [folder1, folder2] of Object.entries(this.plugin.settings.tagBlackList)) {
 			new Setting(containerEl)
-				.setName(`Exclude Folder`)
+				.setName(`Exclude "${folder1}"`)
 				.setDesc("This folder is excluded when pushing get tag mapping button")
-				.addDropdown(dropdown => {
-					dropdown.addOption("", "Select folder...");
-					allFolders.forEach(f => dropdown.addOption(f.path, f.path));
-					dropdown.setValue(folder2);
+				// .addDropdown(dropdown => {
+				// 	dropdown.addOption("", "Select folder...");
+				// 	allFolders.forEach(f => dropdown.addOption(f.path, f.path));
+				// 	dropdown.setValue(folder2);
 
-					dropdown.onChange(async (value) => {
-						if (value) {
-							this.plugin.settings.tagMapping[folder1] = value;
-							// await this.plugin.saveSettings();
-						}
-					});
-				})
+				// 	dropdown.onChange(async (value) => {
+				// 		if (value) {
+				// 			this.plugin.settings.tagMapping[folder1] = value;
+				// 			// await this.plugin.saveSettings();
+				// 		}
+				// 	});
+				// })
 				.addButton(btn =>
 					btn
 						.setButtonText("Delete")
