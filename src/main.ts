@@ -1,4 +1,6 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, getAllTags } from "obsidian";
+// TODO: refactoring these codes into different files.
+import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, FuzzySuggestModal, Notice, getAllTags } from "obsidian";
+import { FolderSuggest, TagSuggest } from "./suggester"
 
 interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
@@ -279,6 +281,18 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		// if (this.plugin.settings.extensionEnabled) {
 		// Get all folders
 		const allFolders = this.app.vault.getAllFolders();
+		const allFiles = this.app.vault.getFiles();
+		const tagSet = new Set<string>();
+		for (const file of allFiles) {
+			const metadata = this.app.metadataCache.getFileCache(file);
+			if (!metadata) continue;
+
+			const tags = getAllTags(metadata);
+			if (tags) {
+				tags.forEach(tag => tagSet.add(tag));
+			}
+		}
+		const allTags = Array.from(tagSet);
 
 		let newExtension = "";
 		let newFolder = "";
@@ -290,10 +304,30 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 				.setPlaceholder("Enter extension (e.g., pdf)")
 				.onChange((value) => newExtension = value.trim())
 			)
-			.addDropdown(dropdown => {
-				dropdown.addOption("", "Select folder...");
-				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-				dropdown.onChange(value => newFolder = value);
+			// .addDropdown(dropdown => {
+			// 	dropdown.addOption("", "Select folder...");
+			// 	allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+			// 	dropdown.onChange(value => newFolder = value);
+			// })
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search folder...");
+
+			// 	const allFolder = this.app.vault.getAllFolders()
+			// 		.map(f => (f as TFolder).path);
+
+			// 	search.inputEl.addEventListener("click", () => {
+			// 		new SuggestModal(this.app, allFolder, folder => {
+			// 			search.setValue(folder);
+			// 			newFolder = folder;
+			// 		}).open();
+			// 	});
+			// })
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search.setPlaceholder("Search folder...")
+					.onChange(folder => {
+						newFolder = folder;
+					})
 			})
 			.addButton(btn => {
 				btn.setButtonText("Add")
@@ -307,7 +341,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					});
 			});
 
-		const collapsibleSection1 = containerEl.createEl("details");
+		const collapsibleSection1 = containerEl.createEl("details", { attr: { open: "true" } });
 		const summary1 = collapsibleSection1.createEl("summary", { text: "Extension mapping list" });
 
 		summary1.style.fontSize = "1.2em";
@@ -364,10 +398,30 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Set Black Folder List")
 			.setDesc("Indicate what folder is excluded for automatically get extension mapping")
-			.addDropdown(dropdown => {
-				dropdown.addOption("", "Select folder...");
-				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-				dropdown.onChange(value => eblackList = value);
+			// .addDropdown(dropdown => {
+			// 	dropdown.addOption("", "Select folder...");
+			// 	allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+			// 	dropdown.onChange(value => eblackList = value);
+			// })
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search folder...");
+
+			// 	const allFolder = this.app.vault.getAllFolders()
+			// 		.map(f => (f as TFolder).path);
+
+			// 	search.inputEl.addEventListener("click", () => {
+			// 		new SuggestModal(this.app, allFolder, folder => {
+			// 			search.setValue(folder);
+			// 			eblackList = folder;
+			// 		}).open();
+			// 	});
+			// })
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search.setPlaceholder("Search folder...")
+					.onChange(folder => {
+						eblackList = folder;
+					})
 			})
 			.addButton(btn => {
 				btn.setButtonText("Add")
@@ -380,7 +434,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					});
 			});
 
-		const collapsibleSection3 = containerEl.createEl("details");
+		const collapsibleSection3 = containerEl.createEl("details", { attr: { open: "true" } });
 		const summary3 = collapsibleSection3.createEl("summary", { text: "Excluded list" });
 
 		summary3.style.fontSize = "1.2em";
@@ -439,14 +493,51 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Add new tag mapping")
 			.setDesc("Add a new tag and target folder")
-			.addText(text => text
-				.setPlaceholder("Enter tag (e.g., #test1)")
-				.onChange((value) => newTag = value.trim())
-			)
-			.addDropdown(dropdown => {
-				dropdown.addOption("", "Select folder...");
-				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-				dropdown.onChange(value => tagFolder = value);
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search tag...");
+
+			// 	search.inputEl.addEventListener("click", () => {
+			// 		new WeakSuggestModal(this.app, allTags, tag => {
+			// 			search.setValue(tag);
+			// 			newTag = tag.trim();
+			// 		}).open();
+			// 	});
+			// })
+			.addSearch(search => {
+				new TagSuggest(this.app, search.inputEl);
+				search.setPlaceholder("Search tag...")
+					.onChange(tag => {
+						newTag = tag.trim();
+					})
+			})
+			// .addText(text => text
+			// 	.setPlaceholder("Enter tag (e.g., #test1)")
+			// 	.onChange((value) => newTag = value.trim())
+			// )
+			// .addDropdown(dropdown => {
+			// 	dropdown.addOption("", "Select folder...");
+			// 	allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+			// 	dropdown.onChange(value => tagFolder = value);
+			// })
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search folder...");
+
+			// 	const allFolder = this.app.vault.getAllFolders()
+			// 		.map(f => (f as TFolder).path);
+
+			// 	search.inputEl.addEventListener("click", () => {
+			// 		new SuggestModal(this.app, allFolder, folder => {
+			// 			search.setValue(folder);
+			// 			tagFolder = folder;
+			// 		}).open();
+			// 	});
+			// })
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search.setPlaceholder("Search folder...")
+					.onChange(folder => {
+						tagFolder = folder;
+					})
 			})
 			.addButton(btn => {
 				btn.setButtonText("Add")
@@ -460,7 +551,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					});
 			});
 
-		const collapsibleSection2 = containerEl.createEl("details");
+		const collapsibleSection2 = containerEl.createEl("details", { attr: { open: "true" } });
 		const summary2 = collapsibleSection2.createEl("summary", { text: "Tag mapping list" });
 
 		summary2.style.fontSize = "1.2em";
@@ -514,14 +605,55 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 			});
 
 		let blackList = "";
+		const dropdownContainer = containerEl.createDiv({ cls: "search-dropdown-container" });
 
 		new Setting(containerEl)
 			.setName("Set Black Folder List")
 			.setDesc("Indicate what folder is excluded for automatically get tag mapping")
-			.addDropdown(dropdown => {
-				dropdown.addOption("", "Select folder...");
-				allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
-				dropdown.onChange(value => blackList = value);
+			// .addDropdown(dropdown => {
+			// 	dropdown.addOption("", "Select folder...");
+			// 	allFolders.forEach(folder => dropdown.addOption(folder.path, folder.path));
+			// 	dropdown.onChange(value => blackList = value);
+			// })
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search folder...");
+			// 	const resultContainer = containerEl.createDiv({ cls: "search-results" });
+			// 	search.onChange(query => {
+			// 		resultContainer.empty();
+			// 		if (!query.trim()) return;
+			// 		const filteredFolders = allFolders.filter(folder => folder.path.includes(query));
+			// 		filteredFolders.forEach(folder => {
+			// 			const resultItem = resultContainer.createEl("div", {
+			// 				text: folder.path,
+			// 				cls: "search-result-item"
+			// 			});
+			// 			resultItem.onclick = () => {
+			// 				search.setValue(folder.path);
+			// 				blackList = folder.path;
+			// 				resultContainer.empty();
+			// 			};
+			// 		});
+			// 	});
+			// })
+			// .addSearch(search => {
+			// 	search.setPlaceholder("Search folder...");
+
+			// 	const allFolder = this.app.vault.getAllFolders()
+			// 		.map(f => (f as TFolder).path);
+
+			// 	search.inputEl.addEventListener("click", () => {
+			// 		new SuggestModal(this.app, allFolder, folder => {
+			// 			search.setValue(folder);
+			// 			blackList = folder;
+			// 		}).open();
+			// 	});
+			// })
+			.addSearch(search => {
+				new FolderSuggest(this.app, search.inputEl);
+				search.setPlaceholder("Search folder...")
+					.onChange(folder => {
+						blackList = folder;
+					})
 			})
 			.addButton(btn => {
 				btn.setButtonText("Add")
@@ -535,7 +667,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					});
 			});
 
-		const collapsibleSection4 = containerEl.createEl("details");
+		const collapsibleSection4 = containerEl.createEl("details", { attr: { open: "true" } });
 		const summary4 = collapsibleSection4.createEl("summary", { text: "Excluded list" });
 
 		summary4.style.fontSize = "1.2em";
@@ -572,3 +704,59 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		}
 	}
 }
+
+// class SuggestModal extends FuzzySuggestModal<string> {
+// 	protected onChoose: (folder: string) => void;
+// 	protected items: string[];
+
+// 	constructor(app: App, items: string[], onChoose: (folder: string) => void) {
+// 		super(app);
+// 		this.items = items;
+// 		this.onChoose = onChoose;
+// 	}
+
+// 	getItems(): string[] {
+// 		return this.items;
+// 	}
+
+// 	getItemText(item: string): string {
+// 		return item;
+// 	}
+
+// 	onChooseItem(item: string, evt: MouseEvent | KeyboardEvent): void {
+// 		this.onChoose(item);
+// 	}
+// }
+
+// class WeakSuggestModal extends SuggestModal {
+// 	private inputValue: string = "";
+
+// 	constructor(app: App, items: string[], onChoose: (folder: string) => void) {
+// 		super(app, items, onChoose);
+// 	}
+
+// 	onOpen(): void {
+// 		super.onOpen();
+
+// 		if (this.inputEl) {
+// 			this.inputEl.addEventListener("input", (event: Event) => {
+// 				const target = event.target as HTMLInputElement;
+// 				this.inputValue = target.value.trim();
+// 			});
+// 		} else {
+// 			console.error("this.inputEl is undefined");
+// 		}
+// 	}
+
+// 	onInputChanged(input: string): void {
+// 		this.inputValue = input;
+// 	}
+
+// 	onClose(): void {
+// 		super.onClose();
+// 		console.log("Input changed:", this.inputValue);  // デバッグログ
+// 		if (this.inputValue && !this.items.includes(this.inputValue)) {
+// 			this.onChoose(this.inputValue);
+// 		}
+// 	}
+// }

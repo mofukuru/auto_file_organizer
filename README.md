@@ -39,7 +39,7 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
 
 ## Notes
 
-This plugin has been tested on Windows, macOS, and Android. However, as it is in the pre-release stage, unexpected behavior may occur.
+This plugin has been tested on Windows, macOS, iOS, and Android. However, as it is in the pre-release stage, unexpected behavior may occur.
 
 ---
 
@@ -61,6 +61,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.0.5
+
+- Change the setting UI that you can fold lists and search.
 
 ### 1.0.4
 
