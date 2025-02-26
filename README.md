@@ -4,6 +4,18 @@ The custom Obsidian plugin, "Auto File Organizer," automatically organizes files
 
 ---
 
+For those updating from 1.0.4 to 1.0.5 (latest)
+
+Sorry for the inconvenience. If you were using extensionMapping, your list may have disappeared during this update. However, there's no need to worry.
+
+You can find your previously registered mapping information by navigating to your Vault directory and checking the following file:
+
+```
+your-vault-directory/.obsidian/plugins/auto_file_organizer/data.json
+```
+
+---
+
 ## Automatic File Organization Feature
 
 Files newly added to the Vault are automatically moved to designated folders based on their extensions or tags.
