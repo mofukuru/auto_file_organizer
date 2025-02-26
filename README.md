@@ -4,7 +4,7 @@ The custom Obsidian plugin, "Auto File Organizer," automatically organizes files
 
 ---
 
-For those updating from 1.0.4 to 1.0.5 (latest)
+## For those updating from 1.0.4 to 1.0.5 (latest)
 
 Sorry for the inconvenience. If you were using extensionMapping, your list may have disappeared during this update. However, there's no need to worry.
 
