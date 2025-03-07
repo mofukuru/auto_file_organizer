@@ -1,6 +1,7 @@
 // TODO: refactoring these codes into different files.
 import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, FuzzySuggestModal, Notice, getAllTags } from "obsidian";
 import { FolderSuggest, TagSuggest } from "./suggester"
+import { isValidExtension, isValidTag, isValidOmittedTag } from "./inputvalidation"
 
 interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
@@ -302,7 +303,9 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 			.setDesc("Add a new extension and target folder")
 			.addText(text => text
 				.setPlaceholder("Enter extension (e.g., pdf)")
-				.onChange((value) => newExtension = value.trim())
+				.onChange((value) => {
+					newExtension = value.trim();
+				})
 			)
 			// .addDropdown(dropdown => {
 			// 	dropdown.addOption("", "Select folder...");
@@ -334,9 +337,13 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						if (newExtension && newFolder) {
-							this.plugin.settings.extensionMapping[newExtension] = newFolder;
-							await this.plugin.saveSettings();
-							this.display();
+							if (isValidExtension(newExtension)) {
+								this.plugin.settings.extensionMapping[newExtension] = newFolder;
+								await this.plugin.saveSettings();
+								this.display();
+							} else {
+								new Notice(`The extension input is invalid.`);
+							}
 						}
 					});
 			});
@@ -507,7 +514,11 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 				new TagSuggest(this.app, search.inputEl);
 				search.setPlaceholder("Search tag...")
 					.onChange(tag => {
-						newTag = tag.trim();
+						if (isValidOmittedTag(tag)) {
+							newTag = '#' + tag.trim();
+						} else {
+							newTag = tag.trim();
+						}
 					})
 			})
 			// .addText(text => text
@@ -544,9 +555,13 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						if (newTag && tagFolder) {
-							this.plugin.settings.tagMapping[newTag] = tagFolder;
-							await this.plugin.saveSettings();
-							this.display();
+							if (isValidTag(newTag)) {
+								this.plugin.settings.tagMapping[newTag] = tagFolder;
+								await this.plugin.saveSettings();
+								this.display();
+							} else {
+								new Notice(`The tag input is invalid.`);
+							}
 						}
 					});
 			});

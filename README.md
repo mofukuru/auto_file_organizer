@@ -74,6 +74,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ## Changelog
 
+### 1.0.6
+
+- Pop notice and not be adopted when you get invalid input.
+
 ### 1.0.5
 
 - Change the setting UI that you can fold lists and search.

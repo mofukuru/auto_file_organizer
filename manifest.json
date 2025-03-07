@@ -1,7 +1,7 @@
 {
 	"id": "auto-file-organizer",
 	"name": "Auto File Organizer",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "1.6.6",
 	"description": "Automatically organizes files into folders based on their extensions or tags",
 	"author": "mofukuru",
