@@ -1,7 +1,7 @@
 // TODO: refactoring these codes into different files.
 import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, FuzzySuggestModal, Notice, getAllTags } from "obsidian";
 import { FolderSuggest, TagSuggest } from "./suggester"
-import { isValidExtension, isValidTag, isValidOmittedTag } from "./inputvalidation"
+import { isValidExtension, getSanitizedTag } from "./inputvalidation"
 
 interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
@@ -514,11 +514,7 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 				new TagSuggest(this.app, search.inputEl);
 				search.setPlaceholder("Search tag...")
 					.onChange(tag => {
-						if (isValidOmittedTag(tag)) {
-							newTag = '#' + tag.trim();
-						} else {
-							newTag = tag.trim();
-						}
+						newTag = getSanitizedTag(tag);
 					})
 			})
 			// .addText(text => text
@@ -555,13 +551,11 @@ class AutoFileOrganizerSettingTab extends PluginSettingTab {
 					.setCta()
 					.onClick(async () => {
 						if (newTag && tagFolder) {
-							if (isValidTag(newTag)) {
-								this.plugin.settings.tagMapping[newTag] = tagFolder;
-								await this.plugin.saveSettings();
-								this.display();
-							} else {
-								new Notice(`The tag input is invalid.`);
-							}
+							this.plugin.settings.tagMapping[newTag] = tagFolder;
+							await this.plugin.saveSettings();
+							this.display();
+						} else {
+							new Notice(`The tag input is invalid.`);
 						}
 					});
 			});

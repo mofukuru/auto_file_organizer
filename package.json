@@ -1,6 +1,6 @@
 {
 	"name": "auto-file-organizer",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"description": "Automatically organizes files into folders based on their extensions or tags.",
 	"main": "main.js",
 	"scripts": {

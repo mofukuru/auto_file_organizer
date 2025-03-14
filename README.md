@@ -74,6 +74,8 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ## Changelog
 
+- Fix invalid input for tags using Unicode.
+
 ### 1.0.6
 
 - Pop notice and not be adopted when you get invalid input.
