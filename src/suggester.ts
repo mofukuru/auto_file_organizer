@@ -69,16 +69,20 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
 
 export class TagSuggest extends TextInputSuggest<string> {
     getSuggestions(inputStr: string): string[] {
-        const allFolders = this.app.vault.getAllFolders();
         const allFiles = this.app.vault.getFiles();
         const tagSet = new Set<string>();
+        const lowerCaseInputStr = inputStr.toLowerCase();
         for (const file of allFiles) {
             const metadata = this.app.metadataCache.getFileCache(file);
             if (!metadata) continue;
 
             const tags = getAllTags(metadata);
             if (tags) {
-                tags.forEach(tag => tagSet.add(tag));
+                tags.forEach(tag => {
+                    if (tag.toLowerCase().includes(lowerCaseInputStr)) {
+                        tagSet.add(tag);
+                    }
+                });
             }
         }
         const allTags = Array.from(tagSet);
