@@ -74,6 +74,12 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ## Changelog
 
+### 1.0.8
+
+- Modified the tag suggestion problem.
+
+### 1.0.7
+
 - Fix invalid input for tags using Unicode.
 
 ### 1.0.6
