@@ -6,9 +6,9 @@
 
 import { TAbstractFile, TFile, TFolder, getAllTags } from "obsidian";
 
-import { TextInputSuggest } from "./suggest";
+import { TextInputSuggestAutoSelection, TextInputSuggest } from "./suggest";
 
-export class FileSuggest extends TextInputSuggest<TFile> {
+export class FileSuggest extends TextInputSuggestAutoSelection<TFile> {
     getSuggestions(inputStr: string): TFile[] {
         const abstractFiles = this.app.vault.getAllLoadedFiles();
         const files: TFile[] = [];
@@ -38,7 +38,7 @@ export class FileSuggest extends TextInputSuggest<TFile> {
     }
 }
 
-export class FolderSuggest extends TextInputSuggest<TFolder> {
+export class FolderSuggest extends TextInputSuggestAutoSelection<TFolder> {
     getSuggestions(inputStr: string): TFolder[] {
         const abstractFiles = this.app.vault.getAllLoadedFiles();
         const folders: TFolder[] = [];
@@ -56,12 +56,17 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
         return folders;
     }
 
-    renderSuggestion(file: TFolder, el: HTMLElement): void {
-        el.setText(file.path);
+    renderSuggestion(folder: TFolder, el: HTMLElement): void {
+        el.setText(folder.path);
     }
 
-    selectSuggestion(file: TFolder): void {
-        this.inputEl.value = file.path;
+    // a mere bug that is not matter on the function
+    selectSuggestion(folder: TFolder): void {
+        if (folder.path === undefined) {
+            this.inputEl.value = "";
+        } else {
+            this.inputEl.value = folder.path;
+        }
         this.inputEl.trigger("input");
         this.close();
     }

@@ -93,7 +93,7 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
                                 await this.plugin.saveSettings();
                                 this.display();
                             } else {
-                                new Notice(`The extension input is invalid.`);
+                                new Notice("The input is invalid.");
                             }
                         }
                     });
@@ -169,6 +169,8 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
                         if (eblackList) {
                             this.plugin.settings.extensionBlackList[eblackList] = eblackList;
                             this.display();
+                        } else {
+                            new Notice("The input is invalid.");
                         }
                     });
             });
@@ -241,7 +243,7 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
                             await this.plugin.saveSettings();
                             this.display();
                         } else {
-                            new Notice(`The tag input is invalid.`);
+                            new Notice("The input is invalid.");
                         }
                     });
             });
@@ -318,6 +320,8 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
                             this.plugin.settings.tagBlackList[blackList] = blackList;
                             // await this.plugin.saveSettings();
                             this.display();
+                        } else {
+                            new Notice("The input is invalid.");
                         }
                     });
             });

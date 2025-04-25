@@ -17,6 +17,7 @@ class Suggest<T> {
     private suggestions: HTMLDivElement[];
     private selectedItem: number;
     private containerEl: HTMLElement;
+    private userSelected = false;
 
     constructor(owner: ISuggestOwner<T>, containerEl: HTMLElement, scope: Scope) {
         this.owner = owner;
@@ -39,13 +40,6 @@ class Suggest<T> {
         scope.register([], "ArrowDown", (event) => {
             if (!event.isComposing) {
                 this.setSelectedItem(this.selectedItem + 1, true);
-                return false;
-            }
-        });
-
-        scope.register([], "Enter", (event) => {
-            if (!event.isComposing) {
-                this.useSelectedItem(event);
                 return false;
             }
         });
@@ -95,11 +89,120 @@ class Suggest<T> {
         selectedSuggestion?.addClass("is-selected");
 
         this.selectedItem = normalizedIndex;
+        this.userSelected = true;
 
         if (scrollIntoView) {
             selectedSuggestion.scrollIntoView(false);
         }
     }
+
+    hasUserSelectedItem(): boolean {
+        return this.userSelected;
+    }
+
+    resetUserSelectedItem(): void {
+        this.userSelected = false;
+    }
+
+    getValues(): T[] {
+        return this.values;
+    }
+}
+
+export abstract class TextInputSuggestAutoSelection<T> implements ISuggestOwner<T> {
+    protected app: App;
+    protected inputEl: HTMLInputElement;
+
+    private popper: PopperInstance;
+    private scope: Scope;
+    private suggestEl: HTMLElement;
+    private suggest: Suggest<T>;
+
+    constructor(app: App, inputEl: HTMLInputElement) {
+        this.app = app;
+        this.inputEl = inputEl;
+        this.scope = new Scope();
+
+        this.suggestEl = createDiv("suggestion-container");
+        const suggestion = this.suggestEl.createDiv("suggestion");
+        this.suggest = new Suggest(this, suggestion, this.scope);
+
+        this.scope.register([], "Escape", this.close.bind(this));
+        this.scope.register([], "Enter", (event) => {
+            if (!event.isComposing) {
+                const selected = this.suggest.getValues()[this.suggest["selectedItem"]]
+
+                if (selected) {
+                    this.selectSuggestion(selected);
+                }
+
+                this.close();
+                return false;
+            }
+        })
+
+        this.inputEl.addEventListener("input", this.onInputChanged.bind(this));
+        this.inputEl.addEventListener("focus", this.onInputChanged.bind(this));
+        this.inputEl.addEventListener("blur", this.close.bind(this));
+        this.suggestEl.on("mousedown", ".suggestion-container", (event: MouseEvent) => {
+            event.preventDefault();
+        });
+    }
+
+    onInputChanged(): void {
+        const inputStr = this.inputEl.value;
+        const suggestions = this.getSuggestions(inputStr);
+
+        if (suggestions.length > 0) {
+            this.suggest.setSuggestions(suggestions);
+            this.suggest.resetUserSelectedItem();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            this.open((<any>this.app).dom.appContainerEl, this.inputEl);
+        }
+    }
+
+    open(container: HTMLElement, inputEl: HTMLElement): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (<any>this.app).keymap.pushScope(this.scope);
+
+        container.appendChild(this.suggestEl);
+        this.popper = createPopper(inputEl, this.suggestEl, {
+            placement: "bottom-start",
+            modifiers: [
+                {
+                    name: "sameWidth",
+                    enabled: true,
+                    fn: ({ state, instance }) => {
+                        // Note: positioning needs to be calculated twice -
+                        // first pass - positioning it according to the width of the popper
+                        // second pass - position it with the width bound to the reference element
+                        // we need to early exit to avoid an infinite loop
+                        const targetWidth = `${state.rects.reference.width}px`;
+                        if (state.styles.popper.width === targetWidth) {
+                            return;
+                        }
+                        state.styles.popper.width = targetWidth;
+                        instance.update();
+                    },
+                    phase: "beforeWrite",
+                    requires: ["computeStyles"],
+                },
+            ],
+        });
+    }
+
+    close(): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (<any>this.app).keymap.popScope(this.scope);
+
+        this.suggest.setSuggestions([]);
+        this.popper.destroy();
+        this.suggestEl.detach();
+    }
+
+    abstract getSuggestions(inputStr: string): T[];
+    abstract renderSuggestion(item: T, el: HTMLElement): void;
+    abstract selectSuggestion(item: T): void;
 }
 
 export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
@@ -121,6 +224,24 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
         this.suggest = new Suggest(this, suggestion, this.scope);
 
         this.scope.register([], "Escape", this.close.bind(this));
+        this.scope.register([], "Enter", (event) => {
+            if (!event.isComposing) {
+                const inputStr = this.inputEl.value;
+
+                const selected = this.suggest.hasUserSelectedItem()
+                    ? this.suggest.getValues()[this.suggest["selectedItem"]]
+                    : null;
+
+                if (selected) {
+                    this.selectSuggestion(selected);
+                } else {
+                    this.selectSuggestion(inputStr as unknown as T);
+                }
+
+                this.close();
+                return false;
+            }
+        })
 
         this.inputEl.addEventListener("input", this.onInputChanged.bind(this));
         this.inputEl.addEventListener("focus", this.onInputChanged.bind(this));
@@ -136,6 +257,7 @@ export abstract class TextInputSuggest<T> implements ISuggestOwner<T> {
 
         if (suggestions.length > 0) {
             this.suggest.setSuggestions(suggestions);
+            this.suggest.resetUserSelectedItem();
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             this.open((<any>this.app).dom.appContainerEl, this.inputEl);
         }
