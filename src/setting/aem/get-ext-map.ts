@@ -16,6 +16,7 @@ export function GetExtensionMapping(
 				.setCta()
 				.onClick(async () => {
 					await plugin.updateExtensionMappingFromExistingFiles();
+					// await plugin.updateExtensionFolderMappingFromExistingFiles();
 					if (renderCallback) await renderCallback();
 				});
 		});

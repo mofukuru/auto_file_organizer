@@ -25,9 +25,9 @@ export function SetExtFolderBlacklist(
 				.setCta()
 				.onClick(async () => {
 					if (eblackList) {
-						plugin.settings.extensionBlackList =
-							plugin.settings.extensionBlackList || {};
-						plugin.settings.extensionBlackList[eblackList] =
+						plugin.settings.extensionFolderBlackList =
+							plugin.settings.extensionFolderBlackList || {};
+						plugin.settings.extensionFolderBlackList[eblackList] =
 							eblackList;
 						if (typeof plugin.saveSettings === "function") {
 							await plugin.saveSettings();

@@ -17,7 +17,7 @@ export function ExcludedExtensionFolderList(
 	summary3.style.cursor = "pointer";
 
 	for (const [folder1] of Object.entries(
-		plugin.settings.extensionBlackList || {}
+		plugin.settings.extensionFolderBlackList || {}
 	)) {
 		new Setting(collapsibleSection3)
 			.setName(`Exclude "${folder1}"`)
@@ -29,7 +29,7 @@ export function ExcludedExtensionFolderList(
 					.setButtonText("Delete")
 					.setCta()
 					.onClick(async () => {
-						delete plugin.settings.extensionBlackList[folder1];
+						delete plugin.settings.extensionFolderBlackList[folder1];
 						if (typeof plugin.saveSettings === "function") {
 							await plugin.saveSettings();
 						}

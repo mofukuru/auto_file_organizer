@@ -10,7 +10,7 @@ export function ExcludedTagFolderList(
         attr: { open: "true" },
     });
     const summary4 = collapsibleSection4.createEl("summary", {
-        text: "Excluded list",
+        text: "Excluded Tag list",
     });
 
     summary4.style.fontSize = "1.2em";

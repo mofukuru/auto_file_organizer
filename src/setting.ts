@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting, Notice, getAllTags } from "obsidian";
+import { App, PluginSettingTab } from "obsidian";
 import AutoFileOrganizer from "./main";
 import { RenderPrioritySetting } from "./setting/priority";
 import { EnableExtensionMapping } from "./setting/etfm/enable-ext-map";
@@ -7,6 +7,8 @@ import { ExtensionMappingList } from "./setting/etfm/ext-map-list";
 import { GetExtensionMapping } from "./setting/aem/get-ext-map";
 import { SetExtFolderBlacklist } from "./setting/aem/set-ext-folder-blacklist";
 import { ExcludedExtensionFolderList } from "./setting/aem/excl-ext-folder-list";
+import { SetExtensionBlacklist } from "./setting/aem/set-ext-blacklist";
+import ExcludedExtensionList from "./setting/aem/excl-ext-list";
 import { EnableTagMapping } from "./setting/ttfm/enable-tag-map";
 import { AddNewTagMapping } from "./setting/ttfm/add-new-tag-map";
 import { TagMappingList } from "./setting/ttfm/tag-map-list";
@@ -52,59 +54,23 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		//* === AEM Section ===
 		containerEl.createEl("h3", { text: "Auto Extension Mapping" });
 
-		/* Get Extension Mapping */
 		//! === AEM: Get Extension Mapping ===
 		GetExtensionMapping(containerEl, this.plugin, () => this.display());
 
-		//! NEW === AEM: Set Extension Blacklist ===
-		let eblackList = "";
+		// NEW === AEM: Set Extension Blacklist ===
+		SetExtensionBlacklist(containerEl, this.plugin, () => this.display());
 
-		new Setting(containerEl)
-			.setName("Set Extension Blacklist")
-			.setDesc(
-				"Indicate what file extension is excluded for automatically get extension mapping"
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter extension (e.g., pdf)")
-					.onChange((value) => {
-						eblackList = value.trim();
-					})
-			)
-			.addButton((btn) => {
-				btn.setButtonText("Add")
-					.setCta()
-					.onClick(async () => {
-						if (eblackList) {
-							this.plugin.settings.extensionBlackList[
-								eblackList
-							] = eblackList;
-							this.display();
-						} else {
-							new Notice("The input is invalid.");
-						}
-					});
-			});
+		// NEW === AEM: Excluded Extension List ===
+		ExcludedExtensionList(containerEl, this.plugin, () => this.display());
 
-		const collapsibleSection5 = containerEl.createEl("details", {
-			attr: { open: "true" },
-		});
-		const summary5 = collapsibleSection5.createEl("summary", {
-			text: "Excluded list",
-		});
-
-		summary5.style.fontSize = "1.2em";
-		summary5.style.margin = "8px";
-		summary5.style.cursor = "pointer";
-
-		//! === AEM: Set Folder Blacklist (extension) ===
-		SetExtFolderBlacklist(containerEl, this.plugin, this.app, () =>
-			this.display()
-		);
-		//! === AEM: Excluded Folder (List) ===
-		ExcludedExtensionFolderList(containerEl, this.plugin, () =>
-			this.display()
-		);
+		//? Old === AEM: Set Folder Blacklist (extension) ===
+		// SetExtFolderBlacklist(containerEl, this.plugin, this.app, () =>
+		// 	this.display()
+		// );
+		//? Old === AEM: Excluded Folder (List) ===
+		// ExcludedExtensionFolderList(containerEl, this.plugin, () =>
+		// 	this.display()
+		// );
 
 		//* === TTFM Section ===
 		containerEl.createEl("h3", { text: "Tag-to-Folder Mapping" });
