@@ -25,7 +25,7 @@ export default class AutoFileOrganizer extends Plugin {
 	settings: AutoFileOrganizerSettings;
 
 	async onload() {
-		console.log("Auto File Organizer loaded!");
+		console.log("Auto File Organizer Enhanced loaded!");
 
 		await this.loadSettings();
 		this.addSettingTab(new AutoFileOrganizerSettingTab(this.app, this));
