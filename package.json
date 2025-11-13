@@ -15,7 +15,7 @@
 		"extensions",
 		"tags"
 	],
-	"author": "mofukuru",
+	"author": "LeinahI",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/node": "^16.11.6",
