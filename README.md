@@ -74,6 +74,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ## Changelog
 
+### 1.0.9
+
+- When auto-mapping extensions to folders, exclude file extensions directly instead of excluding folders.
+
 ### 1.0.8
 
 - Modified the tag suggestion problem.
