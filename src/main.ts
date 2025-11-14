@@ -27,7 +27,7 @@ export default class AutoFileOrganizer extends Plugin {
 	settings: AutoFileOrganizerSettings;
 
 	async onload() {
-		console.log("Auto File Organizer Enhanced loaded!");
+		console.log("Auto File Organizer loaded!");
 
 		await this.loadSettings();
 		this.addSettingTab(new AutoFileOrganizerSettingTab(this.app, this));
@@ -235,6 +235,7 @@ export default class AutoFileOrganizer extends Plugin {
 			`update extension mapping (excluding blacklisted extensions)`
 		);
 	}
+	
 	//? Old: still can't figure out to fix
 	//? Problem: The files on Blacklisted folder still moved on DefaultFolder
 	async updateExtensionFolderMappingFromExistingFiles() {
