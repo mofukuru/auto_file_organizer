@@ -59,7 +59,7 @@ This plugin has been tested on Windows, macOS, iOS, and Android. However, as it 
 
 This plugin aims to focus solely on the functionality of moving files as specified, and features will be implemented to achieve this goal.
 
-1. Set a rule to priotize tags or extensions, which has less confliction.
+1. Set a rule to prioritize tags or extensions, which has less conflicts.
 2. Apply priority rules when making mappings automatically.
 
 ---
@@ -73,6 +73,10 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.0.9
+
+- When auto-mapping extensions to folders, exclude file extensions directly instead of excluding folders.
 
 ### 1.0.8
 
@@ -101,7 +105,7 @@ If you encounter any issues or have feature requests, please let us know by foll
 ### 1.0.2
 
 - Add command to organize files by hand. If can't organize well automatically you should use the function, even that doesn't work please tell me.
-- Add button that make mappings tags to folder automatically. The function is so simple that I don't consider conflictions. Please take care when you use. I will modify later.
+- Add button that make mappings tags to folder automatically. The function is so simple that I don't consider conflicts. Please take care when you use. I will modify later.
 
 ### 1.0.1
 

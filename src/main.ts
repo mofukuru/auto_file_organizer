@@ -6,8 +6,9 @@ interface AutoFileOrganizerSettings {
 	extensionEnabled: boolean;
 	priority: string;
 	extensionMapping: Record<string, string>; // mapping from extension to folder
-	tagMapping: Record<string, string>;    // mapping from tag to folder
+	tagMapping: Record<string, string>; // mapping from tag to folder
 	extensionBlackList: Record<string, string>;
+	extensionFolderBlackList: Record<string, string>;
 	tagBlackList: Record<string, string>;
 }
 
@@ -18,6 +19,7 @@ const DEFAULT_SETTINGS: AutoFileOrganizerSettings = {
 	extensionMapping: {},
 	tagMapping: {},
 	extensionBlackList: {},
+	extensionFolderBlackList: {},
 	tagBlackList: {},
 };
 
@@ -35,7 +37,9 @@ export default class AutoFileOrganizer extends Plugin {
 				if (Object.keys(this.settings.extensionMapping).length > 0) {
 					await this.handleFile(file);
 				} else {
-					console.log("No folder mapping defined. Skipping file organization.");
+					console.log(
+						"No folder mapping defined. Skipping file organization."
+					);
 				}
 			})
 		);
@@ -44,7 +48,7 @@ export default class AutoFileOrganizer extends Plugin {
 			this.app.vault.on("rename", async (file: TFile, oldPath) => {
 				if (!(file instanceof TFile)) return;
 
-				const isInRoot = !file.path.includes('/');
+				const isInRoot = !file.path.includes("/");
 				if (!isInRoot) return;
 
 				await this.handleFile(file);
@@ -94,7 +98,10 @@ export default class AutoFileOrganizer extends Plugin {
 								await this.app.vault.rename(file, targetPath);
 								return true; // move success
 							} catch (err) {
-								console.error(`Failed to move file ${file.name} by tag:`, err);
+								console.error(
+									`Failed to move file ${file.name} by tag:`,
+									err
+								);
 							}
 						}
 					}
@@ -117,7 +124,10 @@ export default class AutoFileOrganizer extends Plugin {
 						await this.app.vault.rename(file, targetPath);
 						return true; // move success
 					} catch (err) {
-						console.error(`Failed to move file ${file.name} by extension:`, err);
+						console.error(
+							`Failed to move file ${file.name} by extension:`,
+							err
+						);
 					}
 				}
 			}
@@ -144,13 +154,17 @@ export default class AutoFileOrganizer extends Plugin {
 	}
 
 	async ensureFolderExists(folderPath: string) {
-		if (!await this.app.vault.adapter.exists(folderPath)) {
+		if (!(await this.app.vault.adapter.exists(folderPath))) {
 			await this.app.vault.createFolder(folderPath);
 		}
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
 	}
 
 	async saveSettings() {
@@ -175,11 +189,15 @@ export default class AutoFileOrganizer extends Plugin {
 
 		// notice of diff
 		if (movedFiles.length > 0) {
-			new Notice(`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`);
+			new Notice(
+				`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`
+			);
 		} else {
 			new Notice("No files were moved.");
 		}
 	}
+
+	//* New: build extension -> folder mapping but skip extensions present in extensionBlackList
 	async updateExtensionMappingFromExistingFiles() {
 		const allFiles = this.app.vault.getFiles();
 		const extensionToFolderMap: Record<string, string> = {};
@@ -188,8 +206,53 @@ export default class AutoFileOrganizer extends Plugin {
 			const extension = file.extension;
 			if (!extension) continue;
 
-			const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
-			if (!extensionToFolderMap[extension] && !this.settings.extensionBlackList[folderName]) {
+			// skip if extension is blacklisted
+			if (
+				this.settings.extensionBlackList &&
+				this.settings.extensionBlackList[extension]
+			) {
+				continue;
+			}
+
+			const folderName =
+				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
+				"DefaultFolder";
+			if (
+				!extensionToFolderMap[extension] &&
+				!this.settings.extensionFolderBlackList[folderName]
+			) {
+				extensionToFolderMap[extension] = folderName;
+			}
+		}
+
+		this.settings.extensionMapping = {
+			...this.settings.extensionMapping,
+			...extensionToFolderMap,
+		};
+
+		await this.saveSettings();
+		new Notice(
+			`update extension mapping (excluding blacklisted extensions)`
+		);
+	}
+	
+	//? Old: still can't figure out to fix
+	//? Problem: The files on Blacklisted folder still moved on DefaultFolder
+	async updateExtensionFolderMappingFromExistingFiles() {
+		const allFiles = this.app.vault.getFiles();
+		const extensionToFolderMap: Record<string, string> = {};
+
+		for (const file of allFiles) {
+			const extension = file.extension;
+			if (!extension) continue;
+
+			const folderName =
+				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
+				"DefaultFolder";
+			if (
+				!extensionToFolderMap[extension] &&
+				!this.settings.extensionFolderBlackList[folderName]
+			) {
 				extensionToFolderMap[extension] = folderName;
 			}
 		}
@@ -202,6 +265,7 @@ export default class AutoFileOrganizer extends Plugin {
 		await this.saveSettings();
 		new Notice(`update extension-to-folder mapping`);
 	}
+
 	async updateTagMappingFromExistingFiles() {
 		const allFiles = this.app.vault.getFiles();
 		const tagToFolderMap: Record<string, string> = {};
@@ -213,8 +277,13 @@ export default class AutoFileOrganizer extends Plugin {
 			const tags = getAllTags(metadata);
 			if (tags && tags.length > 0) {
 				for (const tag of tags) {
-					const folderName = this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || 'DefaultFolder';
-					if (!tagToFolderMap[tag] && !this.settings.tagBlackList[folderName]) {
+					const folderName =
+						this.app.vault.getAbstractFileByPath(file.path)?.parent
+							?.name || "DefaultFolder";
+					if (
+						!tagToFolderMap[tag] &&
+						!this.settings.tagBlackList[folderName]
+					) {
 						tagToFolderMap[tag] = folderName;
 					}
 				}
