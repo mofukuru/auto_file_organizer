@@ -34,7 +34,10 @@ export default class AutoFileOrganizer extends Plugin {
 
 		this.registerEvent(
 			this.app.vault.on("create", async (file: TFile) => {
-				if (Object.keys(this.settings.extensionMapping).length > 0) {
+				if (
+					Object.keys(this.settings.extensionMapping).length > 0 ||
+					Object.keys(this.settings.tagMapping).length > 0
+				) {
 					await this.handleFile(file);
 				} else {
 					console.log(
