@@ -77,14 +77,26 @@ export default class AutoFileOrganizer extends Plugin {
 		const originalPath = file.path;
 
 		// Skip if the file is under any blacklisted folder (global guard)
-		const parentFolderName =
-			this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || "";
-		if (
-			(this.settings.extensionFolderBlackList &&
-				this.settings.extensionFolderBlackList[parentFolderName]) ||
-			(this.settings.tagBlackList && this.settings.tagBlackList[parentFolderName])
-		) {
-			// Do not move files that reside in blacklisted folders
+		// Check full path to support nested folders (e.g., Project/Project 1)
+		const isInBlacklistedFolder = (filePath: string): boolean => {
+			const pathParts = filePath.split("/");
+			// Check each folder in the path hierarchy
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				const folderName = pathParts[i];
+				if (
+					(this.settings.extensionFolderBlackList &&
+						this.settings.extensionFolderBlackList[folderName]) ||
+					(this.settings.tagBlackList &&
+						this.settings.tagBlackList[folderName])
+				) {
+					return true;
+				}
+			}
+			return false;
+		};
+
+		if (isInBlacklistedFolder(file.path)) {
+			// Do not move files that reside in blacklisted folders or their subfolders
 			return null;
 		}
 
@@ -115,6 +127,10 @@ export default class AutoFileOrganizer extends Plugin {
 									err
 								);
 							}
+						} else {
+							console.log(
+								`File ${file.name} already in correct folder for tag ${tag}`
+							);
 						}
 					}
 				}
@@ -122,31 +138,33 @@ export default class AutoFileOrganizer extends Plugin {
 			return false; // no move
 		};
 
-		// move by extension
-		const moveByExtension = async (): Promise<boolean> => {
-			if (!this.settings.extensionEnabled) return false;
+	// move by extension
+	const moveByExtension = async (): Promise<boolean> => {
+		if (!this.settings.extensionEnabled) return false;
 
-			const extension = file.extension;
-			const targetFolder = this.settings.extensionMapping[extension];
-			if (targetFolder) {
-				await this.ensureFolderExists(targetFolder);
-				const targetPath = `${targetFolder}/${file.name}`;
-				if (originalPath !== targetPath) {
-					try {
-						await this.app.vault.rename(file, targetPath);
-						return true; // move success
-					} catch (err) {
-						console.error(
-							`Failed to move file ${file.name} by extension:`,
-							err
-						);
-					}
+		const extension = file.extension;
+		const targetFolder = this.settings.extensionMapping[extension];
+		if (targetFolder) {
+			await this.ensureFolderExists(targetFolder);
+			const targetPath = `${targetFolder}/${file.name}`;
+			if (originalPath !== targetPath) {
+				try {
+					await this.app.vault.rename(file, targetPath);
+					return true; // move success
+				} catch (err) {
+					console.error(
+						`Failed to move file ${file.name} by extension:`,
+						err
+					);
 				}
+			} else {
+				console.log(
+					`File ${file.name} already in correct folder for extension ${extension}`
+				);
 			}
-			return false; // no move
-		};
-
-		// priority
+		}
+		return false; // no move
+	};		// priority
 		if (this.settings.priority === "tag") {
 			const movedByTag = await moveByTag();
 			if (movedByTag) return file.name;
@@ -181,9 +199,6 @@ export default class AutoFileOrganizer extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-		if (Object.keys(this.settings.extensionMapping).length > 0) {
-			await this.organizeVault();
-		}
 	}
 
 	async organizeVault() {
@@ -229,10 +244,18 @@ export default class AutoFileOrganizer extends Plugin {
 			const folderName =
 				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
 				"DefaultFolder";
-			if (
-				!extensionToFolderMap[extension] &&
-				!this.settings.extensionFolderBlackList[folderName]
-			) {
+			
+			// Check if any folder in the path hierarchy is blacklisted
+			const pathParts = file.path.split("/");
+			let isBlacklisted = false;
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				if (this.settings.extensionFolderBlackList[pathParts[i]]) {
+					isBlacklisted = true;
+					break;
+				}
+			}
+			
+			if (!extensionToFolderMap[extension] && !isBlacklisted) {
 				extensionToFolderMap[extension] = folderName;
 			}
 		}
@@ -262,10 +285,18 @@ export default class AutoFileOrganizer extends Plugin {
 			const folderName =
 				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
 				"DefaultFolder";
-			if (
-				!extensionToFolderMap[extension] &&
-				!this.settings.extensionFolderBlackList[folderName]
-			) {
+			
+			// Check if any folder in the path hierarchy is blacklisted
+			const pathParts = file.path.split("/");
+			let isBlacklisted = false;
+			for (let i = 0; i < pathParts.length - 1; i++) {
+				if (this.settings.extensionFolderBlackList[pathParts[i]]) {
+					isBlacklisted = true;
+					break;
+				}
+			}
+			
+			if (!extensionToFolderMap[extension] && !isBlacklisted) {
 				extensionToFolderMap[extension] = folderName;
 			}
 		}
@@ -293,10 +324,18 @@ export default class AutoFileOrganizer extends Plugin {
 					const folderName =
 						this.app.vault.getAbstractFileByPath(file.path)?.parent
 							?.name || "DefaultFolder";
-					if (
-						!tagToFolderMap[tag] &&
-						!this.settings.tagBlackList[folderName]
-					) {
+					
+					// Check if any folder in the path hierarchy is blacklisted
+					const pathParts = file.path.split("/");
+					let isBlacklisted = false;
+					for (let i = 0; i < pathParts.length - 1; i++) {
+						if (this.settings.tagBlackList[pathParts[i]]) {
+							isBlacklisted = true;
+							break;
+						}
+					}
+					
+					if (!tagToFolderMap[tag] && !isBlacklisted) {
 						tagToFolderMap[tag] = folderName;
 					}
 				}

@@ -90,6 +90,12 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ## Changelog
 
+### 1.1.1
+
+- Support nested folder exclusion: excluding "Project" now protects all files under "Project/Project 1", etc.
+- Fix: Remove automatic vault reorganization on every settings save to prevent unnecessary processing.
+- Add debug logging when files are already in their correct location.
+
 ### 1.1.0
 
 - Add global guard to prevent moving files located in excluded folders (e.g., Archive). Manage excluded folders in Settings → Auto Extension Mapping / Auto Tag Mapping.

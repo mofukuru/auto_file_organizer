@@ -71,14 +71,19 @@ This document provides the authoritative, detailed specification for the Obsidia
 
 ## Excluded Folders Behavior
 - Files within folders listed in `extensionFolderBlackList` or `tagBlackList` will not be moved by the organizer.
-- The global guard is applied at the beginning of `handleFile()` and short-circuits any move attempts.
+- **Nested folders are supported:** If you exclude `Project`, all files under `Project/Project 1`, `Project/Project 2`, etc., are also protected.
+- The global guard is applied at the beginning of `handleFile()` and checks each folder in the file's path hierarchy.
 - Use the settings UI to manage these lists:
   - Auto Extension Mapping → Excluded Folder (extension side)
   - Auto Tag Mapping → Excluded Folder (tag side)
 
 ## FAQ
 - Q: My Archive files keep getting relocated. How can I stop this?
-  - A: Add `Archive` to the excluded folder list in Auto Extension Mapping (and optionally in Auto Tag Mapping). Files inside excluded folders are never moved.
+  - A: Add `Archive` to the excluded folder list in Auto Extension Mapping (and optionally in Auto Tag Mapping). Files inside excluded folders and their subfolders are never moved.
+- Q: If I exclude "Project", will "Project/Project 1/file.md" also be protected?
+  - A: Yes. The exclusion applies to the entire folder hierarchy starting from the excluded folder name.
+- Q: Files with tag "#project" already in the "project" folder keep being processed. Why?
+  - A: The plugin checks if a file is already in the correct location (`originalPath !== targetPath`) and skips the move. However, prior to v1.1.0, every settings save triggered a full vault reorganization, causing unnecessary processing. This has been fixed—now files already in their correct folder are simply logged and skipped.
 - Q: Does exclusion affect auto-mapping builders?
   - A: Yes. Auto-mapping functions skip folders and extensions present in the respective blacklists when populating mappings.
 
