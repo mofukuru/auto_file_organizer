@@ -46,12 +46,28 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
 4. **Automatically Making Mappings based on Extensions or Tags**:
    - You can start making mappings based on Extensions or Tags if you push the button.
    - You can also set black lists what you don't include folders to make mappings.
+   
+---
+
+## How to exclude folders (Archive など)
+
+If you want to prevent files inside certain folders (e.g., `Archive`) from being moved automatically:
+
+1. Open Obsidian → Settings → Community Plugins → Auto File Organizer.
+2. In the section "Auto Extension Mapping":
+   - Add the folder to the "Excluded Folder" list (extension side).
+3. Optionally, in the section "Auto Tag Mapping":
+   - Add the folder to the "Excluded Folder" list (tag side).
+
+From v1.0.9 and later, files under excluded folders will not be moved by the organizer thanks to a global guard. For details, see `SPEC.md`.
 
 ---
 
 ## Notes
 
 This plugin has been tested on Windows, macOS, iOS, and Android. However, as it is in the pre-release stage, unexpected behavior may occur.
+
+For full, authoritative details of the current specifications, please refer to [See SPEC.md for details](SPEC.md). The README provides a high-level overview; detailed behavior and settings are documented in that markdown file.
 
 ---
 
@@ -73,6 +89,12 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.1.0
+
+- Add global guard to prevent moving files located in excluded folders (e.g., Archive). Manage excluded folders in Settings → Auto Extension Mapping / Auto Tag Mapping.
+- Re-enable UI for extension folder blacklist management.
+- Documentation updates pointing to SPEC.md for detailed specs.
 
 ### 1.0.9
 

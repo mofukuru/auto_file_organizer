@@ -63,14 +63,14 @@ export class AutoFileOrganizerSettingTab extends PluginSettingTab {
 		// NEW === AEM: Excluded Extension List ===
 		ExcludedExtensionList(containerEl, this.plugin, () => this.display());
 
-		//? Old === AEM: Set Folder Blacklist (extension) ===
-		// SetExtFolderBlacklist(containerEl, this.plugin, this.app, () =>
-		// 	this.display()
-		// );
-		//? Old === AEM: Excluded Folder (List) ===
-		// ExcludedExtensionFolderList(containerEl, this.plugin, () =>
-		// 	this.display()
-		// );
+		//! AEM: Set Folder Blacklist (extension)
+		SetExtFolderBlacklist(containerEl, this.plugin, this.app, () =>
+			this.display()
+		);
+		//! AEM: Excluded Folder (List)
+		ExcludedExtensionFolderList(containerEl, this.plugin, () =>
+			this.display()
+		);
 
 		//* === TTFM Section ===
 		containerEl.createEl("h3", { text: "Tag-to-Folder Mapping" });

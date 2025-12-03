@@ -76,6 +76,18 @@ export default class AutoFileOrganizer extends Plugin {
 
 		const originalPath = file.path;
 
+		// Skip if the file is under any blacklisted folder (global guard)
+		const parentFolderName =
+			this.app.vault.getAbstractFileByPath(file.path)?.parent?.name || "";
+		if (
+			(this.settings.extensionFolderBlackList &&
+				this.settings.extensionFolderBlackList[parentFolderName]) ||
+			(this.settings.tagBlackList && this.settings.tagBlackList[parentFolderName])
+		) {
+			// Do not move files that reside in blacklisted folders
+			return null;
+		}
+
 		// move by tag
 		const moveByTag = async (): Promise<boolean> => {
 			if (!this.settings.tagEnabled) return false;
@@ -236,8 +248,9 @@ export default class AutoFileOrganizer extends Plugin {
 		);
 	}
 	
-	//? Old: still can't figure out to fix
-	//? Problem: The files on Blacklisted folder still moved on DefaultFolder
+	// Fixed: files inside blacklisted folders are NOT moved
+	// Guard is applied at the beginning of handleFile() using
+	// extensionFolderBlackList and tagBlackList.
 	async updateExtensionFolderMappingFromExistingFiles() {
 		const allFiles = this.app.vault.getFiles();
 		const extensionToFolderMap: Record<string, string> = {};
