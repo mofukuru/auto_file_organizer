@@ -7,7 +7,7 @@ This document provides the authoritative, detailed specification for the Obsidia
 - Provide manual and automated mapping tools to configure how extensions and tags map to folders.
 
 ## Version / Compatibility
-- Plugin version: 1.0.9
+- Plugin version: 1.1.2
 - Minimum Obsidian version: 1.6.6
 - Platforms: Desktop and mobile (isDesktopOnly: false)
 
@@ -18,14 +18,14 @@ This document provides the authoritative, detailed specification for the Obsidia
 - `extensionMapping` (Record<string, string>): `{ extension: folderName }` without leading dot.
 - `tagMapping` (Record<string, string>): `{ "#tag": folderName }` with leading `#`.
 - `extensionBlackList` (Record<string, string>): Extensions excluded from auto-building mappings.
-- `extensionFolderBlackList` (Record<string, string>): Deprecated; folders excluded from old auto-mapping.
+- `extensionFolderBlackList` (Record<string, string>): Folder paths excluded from auto-mapping and live move logic. Keys are full vault-relative paths (e.g., `"- Files/Obsidian Tutorial"`); values equal keys (set semantics).
 - `tagBlackList` (Record<string, string>): Folders excluded from auto tag-based mapping.
 
 ## Core Behavior
 ### Event Triggers
 - `vault.create (TFile)`: On file creation, attempts to move based on configured mappings.
 - `vault.rename (TFile, oldPath)`: If the file is in the vault root, re-evaluates move logic.
-- `metadataCache.changed (TFile)`: On metadata change (e.g., tags), attempts to move again.
+- `metadataCache.changed (TFile)`: On metadata change (e.g., tags added), attempts to move — **only if the file is in the vault root**. Already-organized files in subfolders are not affected.
 
 ### Move Algorithm
 1. Determine `priority`:
@@ -71,17 +71,21 @@ This document provides the authoritative, detailed specification for the Obsidia
 
 ## Excluded Folders Behavior
 - Files within folders listed in `extensionFolderBlackList` or `tagBlackList` will not be moved by the organizer.
-- **Nested folders are supported:** If you exclude `Project`, all files under `Project/Project 1`, `Project/Project 2`, etc., are also protected.
-- The global guard is applied at the beginning of `handleFile()` and checks each folder in the file's path hierarchy.
+- **Full path keys are supported:** The key must be the full vault-relative path of the folder (e.g., `"- Files/Obsidian Tutorial"`). Any file whose parent path equals the key or starts with `key + "/"` is excluded.
+  - `"- Files/Obsidian Tutorial"` protects `- Files/Obsidian Tutorial/file.png` and `- Files/Obsidian Tutorial/Images/file.png`, but does NOT affect `- Files/Attachments/Images/file.png`.
+- **Nested folders are supported:** If you exclude `- Files/Obsidian Tutorial`, all files under any subdirectory of that folder are also protected.
+- The global guard is applied at the beginning of `handleFile()`.
 - Use the settings UI to manage these lists:
   - Auto Extension Mapping → Excluded Folder (extension side)
   - Auto Tag Mapping → Excluded Folder (tag side)
 
 ## FAQ
 - Q: My Archive files keep getting relocated. How can I stop this?
-  - A: Add `Archive` to the excluded folder list in Auto Extension Mapping (and optionally in Auto Tag Mapping). Files inside excluded folders and their subfolders are never moved.
+  - A: Add the folder's full vault-relative path (e.g., `Archive` or `- Files/Archive`) to the Excluded Folder list in Auto Extension Mapping (and optionally in Auto Tag Mapping). Files inside excluded folders and their subfolders are never moved.
+- Q: If I exclude `"- Files/Obsidian Tutorial"`, will `"- Files/Attachments/Images"` also be excluded?
+  - A: No. Exclusion is prefix-based on the full path. `"- Files/Obsidian Tutorial"` only protects files whose path starts with `- Files/Obsidian Tutorial/`, so `- Files/Attachments/Images` is unaffected.
 - Q: If I exclude "Project", will "Project/Project 1/file.md" also be protected?
-  - A: Yes. The exclusion applies to the entire folder hierarchy starting from the excluded folder name.
+  - A: Yes. The exclusion applies to the entire folder hierarchy under the specified path.
 - Q: Files with tag "#project" already in the "project" folder keep being processed. Why?
   - A: The plugin checks if a file is already in the correct location (`originalPath !== targetPath`) and skips the move. However, prior to v1.1.0, every settings save triggered a full vault reorganization, causing unnecessary processing. This has been fixed—now files already in their correct folder are simply logged and skipped.
 - Q: Does exclusion affect auto-mapping builders?
@@ -92,6 +96,8 @@ This document provides the authoritative, detailed specification for the Obsidia
   - `your-vault/.obsidian/plugins/auto_file_organizer/data.json`
 
 ## Changelog Highlights
+- 1.1.2: Fix critical bug where `metadataCache.changed` moved existing organized files. Fix folder blacklist to support full vault-relative paths (e.g., `"- Files/Obsidian Tutorial"`).
+- 1.1.1: Support nested folder exclusion; remove automatic vault reorganization on settings save.
 - 1.0.9: Auto-mapping excludes blacklisted extensions directly.
 - 1.0.8: Fix tag suggestion behavior.
 - 1.0.7: Fix invalid Unicode tag input.

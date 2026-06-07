@@ -49,17 +49,19 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
    
 ---
 
-## How to exclude folders (Archive など)
+## How to exclude folders
 
-If you want to prevent files inside certain folders (e.g., `Archive`) from being moved automatically:
+If you want to prevent files inside certain folders from being moved automatically:
 
 1. Open Obsidian → Settings → Community Plugins → Auto File Organizer.
 2. In the section "Auto Extension Mapping":
-   - Add the folder to the "Excluded Folder" list (extension side).
+   - Add the folder's **full vault-relative path** to the "Excluded Folder" list (e.g., `- Files/Obsidian Tutorial`).
 3. Optionally, in the section "Auto Tag Mapping":
-   - Add the folder to the "Excluded Folder" list (tag side).
+   - Add the same path to the "Excluded Folder" list (tag side).
 
-From v1.0.9 and later, files under excluded folders will not be moved by the organizer thanks to a global guard. For details, see `SPEC.md`.
+**Important:** Use the complete vault-relative path as the key. For example, to protect `- Files/Obsidian Tutorial/Images` without affecting `- Files/Attachments/Images`, add `- Files/Obsidian Tutorial` — this will protect that folder and all its subfolders, but will not touch any other path.
+
+From v1.1.2, blacklist keys are matched against the file's full folder path (prefix match), so partial names no longer cause unintended exclusions. For full details, see [SPEC.md](SPEC.md).
 
 ---
 
@@ -89,6 +91,11 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.1.2
+
+- **Critical fix**: Files already organized in subfolders were incorrectly being moved when any file's metadata changed (e.g., on Obsidian startup or frontmatter edits). The `metadataCache.changed` handler now only processes files in the vault root, matching the behavior of the rename handler.
+- **Fix**: Folder blacklist (`extensionFolderBlackList`) now correctly matches full vault-relative paths. Previously, a key like `"- Files/Obsidian Tutorial"` was not recognized because matching was done on individual path segments. Now, keys are compared against the file's complete folder path using prefix matching — so `"- Files/Obsidian Tutorial"` protects everything under that folder without affecting unrelated paths like `"- Files/Attachments/Images"`.
 
 ### 1.1.1
 

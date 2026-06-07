@@ -60,6 +60,10 @@ export default class AutoFileOrganizer extends Plugin {
 
 		this.registerEvent(
 			this.app.metadataCache.on("changed", async (file: TFile) => {
+				if (!(file instanceof TFile)) return;
+				// Only process files in vault root; already-organized files should not be re-moved
+				const isInRoot = !file.path.includes("/");
+				if (!isInRoot) return;
 				await this.handleFile(file);
 			})
 		);
@@ -80,22 +84,21 @@ export default class AutoFileOrganizer extends Plugin {
 		const originalPath = file.path;
 
 		// Skip if the file is under any blacklisted folder (global guard)
-		// Check full path to support nested folders (e.g., Project/Project 1)
 		const isInBlacklistedFolder = (filePath: string): boolean => {
-			const pathParts = filePath.split("/");
-			// Check each folder in the path hierarchy
-			for (let i = 0; i < pathParts.length - 1; i++) {
-				const folderName = pathParts[i];
-				if (
-					(this.settings.extensionFolderBlackList &&
-						this.settings.extensionFolderBlackList[folderName]) ||
-					(this.settings.tagBlackList &&
-						this.settings.tagBlackList[folderName])
-				) {
-					return true;
-				}
-			}
-			return false;
+			const lastSlash = filePath.lastIndexOf("/");
+			const folderPath = lastSlash >= 0 ? filePath.substring(0, lastSlash) : "";
+
+			const matchesBlacklist = (blacklist: Record<string, string>): boolean =>
+				Object.keys(blacklist).some(
+					(key) => folderPath === key || folderPath.startsWith(key + "/")
+				);
+
+			return (
+				(!!this.settings.extensionFolderBlackList &&
+					matchesBlacklist(this.settings.extensionFolderBlackList)) ||
+				(!!this.settings.tagBlackList &&
+					matchesBlacklist(this.settings.tagBlackList))
+			);
 		};
 
 		if (isInBlacklistedFolder(file.path)) {
@@ -247,18 +250,14 @@ export default class AutoFileOrganizer extends Plugin {
 			const folderName =
 				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
 				"DefaultFolder";
-			
-			// Check if any folder in the path hierarchy is blacklisted
-			const pathParts = file.path.split("/");
-			let isBlacklisted = false;
-			for (let i = 0; i < pathParts.length - 1; i++) {
-				if (this.settings.extensionFolderBlackList[pathParts[i]]) {
-					isBlacklisted = true;
-					break;
-				}
-			}
-			
-			if (!extensionToFolderMap[extension] && !isBlacklisted) {
+
+			const lastSlash = file.path.lastIndexOf("/");
+			const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
+			const isBlacklisted = Object.keys(
+				this.settings.extensionFolderBlackList || {}
+			).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
+
+			if (!extensionToFolderMap[extension] && !isBlacklisted && !this.settings.extensionMapping[extension]) {
 				extensionToFolderMap[extension] = folderName;
 			}
 		}
@@ -273,10 +272,7 @@ export default class AutoFileOrganizer extends Plugin {
 			`update extension mapping (excluding blacklisted extensions)`
 		);
 	}
-	
-	// Fixed: files inside blacklisted folders are NOT moved
-	// Guard is applied at the beginning of handleFile() using
-	// extensionFolderBlackList and tagBlackList.
+
 	async updateExtensionFolderMappingFromExistingFiles() {
 		const allFiles = this.app.vault.getFiles();
 		const extensionToFolderMap: Record<string, string> = {};
@@ -288,18 +284,14 @@ export default class AutoFileOrganizer extends Plugin {
 			const folderName =
 				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
 				"DefaultFolder";
-			
-			// Check if any folder in the path hierarchy is blacklisted
-			const pathParts = file.path.split("/");
-			let isBlacklisted = false;
-			for (let i = 0; i < pathParts.length - 1; i++) {
-				if (this.settings.extensionFolderBlackList[pathParts[i]]) {
-					isBlacklisted = true;
-					break;
-				}
-			}
-			
-			if (!extensionToFolderMap[extension] && !isBlacklisted) {
+
+			const lastSlash = file.path.lastIndexOf("/");
+			const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
+			const isBlacklisted = Object.keys(
+				this.settings.extensionFolderBlackList || {}
+			).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
+
+			if (!extensionToFolderMap[extension] && !isBlacklisted && !this.settings.extensionMapping[extension]) {
 				extensionToFolderMap[extension] = folderName;
 			}
 		}
@@ -328,17 +320,13 @@ export default class AutoFileOrganizer extends Plugin {
 						this.app.vault.getAbstractFileByPath(file.path)?.parent
 							?.name || "DefaultFolder";
 					
-					// Check if any folder in the path hierarchy is blacklisted
-					const pathParts = file.path.split("/");
-					let isBlacklisted = false;
-					for (let i = 0; i < pathParts.length - 1; i++) {
-						if (this.settings.tagBlackList[pathParts[i]]) {
-							isBlacklisted = true;
-							break;
-						}
-					}
+					const lastSlash = file.path.lastIndexOf("/");
+					const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
+					const isBlacklisted = Object.keys(
+						this.settings.tagBlackList || {}
+					).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
 					
-					if (!tagToFolderMap[tag] && !isBlacklisted) {
+					if (!tagToFolderMap[tag] && !isBlacklisted && !this.settings.tagMapping[tag]) {
 						tagToFolderMap[tag] = folderName;
 					}
 				}
