@@ -2,6 +2,12 @@ export function isValidExtension(input: string): boolean {
     return /^[\w-]+$/.test(input);
 }
 
+// Accepts "pdf", ".pdf" or " PDF " and returns "pdf"; "" when invalid.
+export function getSanitizedExtension(input: string): string {
+    const extension = input.trim().replace(/^\.+/, "").toLowerCase();
+    return isValidExtension(extension) ? extension : "";
+}
+
 // export function isValidTag(input: string): boolean {
 //     return /^#[\w-]+$/.test(input);
 // }

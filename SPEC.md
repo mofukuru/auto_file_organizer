@@ -7,7 +7,7 @@ This document provides the authoritative, detailed specification for the Obsidia
 - Provide manual and automated mapping tools to configure how extensions and tags map to folders.
 
 ## Version / Compatibility
-- Plugin version: 1.1.2
+- Plugin version: 1.2.0
 - Minimum Obsidian version: 1.6.6
 - Platforms: Desktop and mobile (isDesktopOnly: false)
 
@@ -15,28 +15,28 @@ This document provides the authoritative, detailed specification for the Obsidia
 - `tagEnabled` (boolean): Enable moving by tags.
 - `extensionEnabled` (boolean): Enable moving by extension.
 - `priority` ("tag" | "extension"): Which rule is attempted first.
+- `rootOnly` (boolean, default false): When true, files created outside the vault root are not moved automatically.
 - `extensionMapping` (Record<string, string>): `{ extension: folderName }` without leading dot.
-- `tagMapping` (Record<string, string>): `{ "#tag": folderName }` with leading `#`.
+- `tagMapping` (Record<string, string>): `{ "#tag": folderPath }` with leading `#`. Key order is rule priority (earlier wins).
 - `extensionBlackList` (Record<string, string>): Extensions excluded from auto-building mappings.
 - `extensionFolderBlackList` (Record<string, string>): Folder paths excluded from auto-mapping and live move logic. Keys are full vault-relative paths (e.g., `"- Files/Obsidian Tutorial"`); values equal keys (set semantics).
 - `tagBlackList` (Record<string, string>): Folders excluded from auto tag-based mapping.
 
 ## Core Behavior
 ### Event Triggers
-- `vault.create (TFile)`: On file creation, attempts to move based on configured mappings.
+- `vault.create (TFile)`: On file creation, attempts to move based on configured mappings. Registered inside `workspace.onLayoutReady` so the create events Obsidian emits for existing files during vault load are ignored. Skipped for non-root files when `rootOnly` is true.
 - `vault.rename (TFile, oldPath)`: If the file is in the vault root, re-evaluates move logic.
 - `metadataCache.changed (TFile)`: On metadata change (e.g., tags added), attempts to move — **only if the file is in the vault root**. Already-organized files in subfolders are not affected.
 
 ### Move Algorithm
-1. Determine `priority`:
-   - If `priority === "tag"` and `tagEnabled`:
-     - Read file metadata; collect tags via `getAllTags`.
-     - For the first tag present in `tagMapping`, ensure folder and rename to `targetFolder/file.name`.
-   - Then, if not moved and `extensionEnabled`:
-     - Look up `file.extension` in `extensionMapping` and move similarly.
-   - If `priority === "extension"`, reverse the above order.
-2. Folder creation: `ensureFolderExists(folderPath)` creates missing folders.
-3. Manual command: `Organize Files` iterates all vault files and applies the same logic, showing a notice with moved filenames.
+1. If the file's parent folder is under any key of `extensionFolderBlackList` or `tagBlackList`, do nothing.
+2. Resolve a target folder, in `priority` order:
+   - Tag (`tagEnabled`): collect the note's tags via `getAllTags` (case-insensitive). Take the `tagMapping` entries that match, in mapping order. If the note already sits in the folder of any matching rule, the target is its current folder (no move); otherwise the first matching rule's folder.
+   - Extension (`extensionEnabled`): look up `file.extension` (exact, then lowercase) in `extensionMapping`.
+3. If the target equals the current folder, do nothing.
+4. If a file already exists at `target/file.name`, skip and show a notice.
+5. Create the folder if needed and move with `fileManager.renameFile`, which updates links per the user's settings.
+6. Manual command `Organize files`: plans moves for all vault files, shows a preview modal with per-file checkboxes, then moves the selected files sequentially and reports moved/skipped counts.
 
 ### Notes
 - Tag-based mapping requires tags to be stored in the note’s metadata.
@@ -47,14 +47,13 @@ This document provides the authoritative, detailed specification for the Obsidia
 ### Extensions (AEM)
 - `updateExtensionMappingFromExistingFiles()`:
   - Scans all files; skips extensions present in `extensionBlackList`.
-  - Derives each file’s parent folder name; if the folder is not in `extensionFolderBlackList`, adds `{extension: folderName}` to `extensionMapping`.
+  - Skips files in the vault root, extensions already mapped, and folders under `extensionFolderBlackList`.
+  - For each extension, adds the full folder path that contains the most files with that extension.
   - Saves settings and displays a notice.
-- `updateExtensionFolderMappingFromExistingFiles()` (legacy):
-  - Older approach noted as problematic and deprecated in the UI.
 
 ### Tags (ATM)
 - `updateTagMappingFromExistingFiles()`:
-  - Scans all files; extracts tags from metadata and maps first-seen tag to the file’s parent folder, skipping folders in `tagBlackList`.
+  - Scans markdown files; for each unmapped tag, adds the full folder path that contains the most notes with that tag. Root files and folders under `tagBlackList` are skipped.
   - Saves settings and displays a notice.
 
 ## Settings UI Structure
@@ -66,15 +65,15 @@ This document provides the authoritative, detailed specification for the Obsidia
 
 ## Limitations / Current Behavior
 - Rename trigger applies only when renamed files are in the vault root.
-- No explicit conflict resolution when multiple tags match; applies first matching tag encountered.
-- Legacy folder blacklist for extension auto-mapping is present but not prominent in the UI.
+- When multiple tags match, the order of `tagMapping` decides (reorderable in settings).
+- Suggesters use `AbstractInputSuggest`, so they work when settings open in a separate window (Obsidian 1.13+).
 
 ## Excluded Folders Behavior
 - Files within folders listed in `extensionFolderBlackList` or `tagBlackList` will not be moved by the organizer.
 - **Full path keys are supported:** The key must be the full vault-relative path of the folder (e.g., `"- Files/Obsidian Tutorial"`). Any file whose parent path equals the key or starts with `key + "/"` is excluded.
   - `"- Files/Obsidian Tutorial"` protects `- Files/Obsidian Tutorial/file.png` and `- Files/Obsidian Tutorial/Images/file.png`, but does NOT affect `- Files/Attachments/Images/file.png`.
 - **Nested folders are supported:** If you exclude `- Files/Obsidian Tutorial`, all files under any subdirectory of that folder are also protected.
-- The global guard is applied at the beginning of `handleFile()`.
+- The global guard is applied at the beginning of `getTargetFolder()`. Trailing slashes in keys are ignored.
 - Use the settings UI to manage these lists:
   - Auto Extension Mapping → Excluded Folder (extension side)
   - Auto Tag Mapping → Excluded Folder (tag side)
@@ -96,6 +95,7 @@ This document provides the authoritative, detailed specification for the Obsidia
   - `your-vault/.obsidian/plugins/auto_file_organizer/data.json`
 
 ## Changelog Highlights
+- 1.2.0: Fix invisible suggestions in pop-out settings (#15); stop moving existing files on startup; preview before "Organize files"; tag rule priority by list order (#4, #9); link-aware moves; auto-mapping uses full folder paths.
 - 1.1.2: Fix critical bug where `metadataCache.changed` moved existing organized files. Fix folder blacklist to support full vault-relative paths (e.g., `"- Files/Obsidian Tutorial"`).
 - 1.1.1: Support nested folder exclusion; remove automatic vault reorganization on settings save.
 - 1.0.9: Auto-mapping excludes blacklisted extensions directly.

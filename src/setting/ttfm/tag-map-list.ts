@@ -1,49 +1,76 @@
-import { Setting, Notice, TFolder } from "obsidian";
-import AutoFileOrganizer from "src/main";
+import { App, Setting } from "obsidian";
+import AutoFileOrganizer, { normalizeFolder } from "src/main";
+import { addFolderSearch, createListSection } from "../ui";
 
 export function TagMappingList(
-    containerEl: HTMLElement,
-    plugin: AutoFileOrganizer,
-    allFolders: TFolder[],
-    refresh: () => void
+	containerEl: HTMLElement,
+	plugin: AutoFileOrganizer,
+	app: App,
+	refresh: () => void
 ): void {
-    const collapsibleSection2 = containerEl.createEl("details", {
-        attr: { open: "true" },
-    });
-    const summary2 = collapsibleSection2.createEl("summary", {
-        text: "Tag mapping list",
-    });
+	const entries = Object.entries(plugin.settings.tagMapping);
+	const section = createListSection(
+		containerEl,
+		"Tag mapping list",
+		entries.length,
+		"No tag mappings yet."
+	);
+	if (entries.length > 1) {
+		section.createDiv({
+			cls: "afo-list-hint",
+			text: "When a note has several mapped tags, the rule higher in this list wins.",
+		});
+	}
 
-    summary2.style.fontSize = "1.2em";
-    summary2.style.margin = "8px";
-    summary2.style.cursor = "pointer";
+	// Object key order is the rule order, so reordering rebuilds the object.
+	const move = async (from: number, to: number) => {
+		const reordered = [...entries];
+		const [item] = reordered.splice(from, 1);
+		reordered.splice(to, 0, item);
+		plugin.settings.tagMapping = Object.fromEntries(reordered);
+		await plugin.saveSettings();
+		refresh();
+	};
 
-    for (const [tag, folder] of Object.entries(plugin.settings.tagMapping)) {
-        new Setting(collapsibleSection2)
-            .setName(`Tag: ${tag}`)
-            .setDesc("Change the folder for this tag")
-            .addDropdown((dropdown) => {
-                dropdown.addOption("", "Select folder...");
-                allFolders.forEach((f) => dropdown.addOption(f.path, f.path));
-                dropdown.setValue(folder);
-
-                dropdown.onChange(async (value) => {
-                    if (value) {
-                        plugin.settings.tagMapping[tag] = value;
-                        await plugin.saveSettings();
-                        new Notice(`Folder for ${tag} files updated to: ${value}`);
-                    }
-                });
-            })
-            .addButton((btn) =>
-                btn
-                    .setButtonText("Delete")
-                    .setCta()
-                    .onClick(async () => {
-                        delete plugin.settings.tagMapping[tag];
-                        await plugin.saveSettings();
-                        refresh();
-                    })
-            );
-    }
+	entries.forEach(([tag, folder], index) => {
+		const setting = new Setting(section).setName(tag);
+		addFolderSearch(
+			setting,
+			app,
+			{
+				onCommit: async (value) => {
+					const normalized = normalizeFolder(value);
+					if (!normalized) return;
+					plugin.settings.tagMapping[tag] = normalized;
+					await plugin.saveSettings();
+				},
+			},
+			folder
+		);
+		setting
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("arrow-up")
+					.setTooltip("Higher priority")
+					.setDisabled(index === 0)
+					.onClick(() => move(index, index - 1))
+			)
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("arrow-down")
+					.setTooltip("Lower priority")
+					.setDisabled(index === entries.length - 1)
+					.onClick(() => move(index, index + 1))
+			)
+			.addExtraButton((btn) =>
+				btn
+					.setIcon("trash-2")
+					.setTooltip("Delete mapping")
+					.onClick(async () => {
+						delete plugin.settings.tagMapping[tag];
+						await plugin.saveSettings();
+						refresh();
+					})
+			);
+	});
 }

@@ -1,7 +1,7 @@
 import { App, Setting, Notice } from "obsidian";
-import AutoFileOrganizer from "src/main";
-import { FolderSuggest } from "src/suggester";
-import { isValidExtension } from "src/inputvalidation";
+import AutoFileOrganizer, { normalizeFolder } from "src/main";
+import { getSanitizedExtension } from "src/inputvalidation";
+import { addFolderSearch } from "../ui";
 
 export function AddNewExtensionMapping(
 	containerEl: HTMLElement,
@@ -12,36 +12,39 @@ export function AddNewExtensionMapping(
 	let newExtension = "";
 	let newFolder = "";
 
-	new Setting(containerEl)
+	const submit = async () => {
+		const extension = getSanitizedExtension(newExtension);
+		const folder = normalizeFolder(newFolder);
+		if (!extension) {
+			new Notice("Enter a valid extension (e.g., pdf).");
+			return;
+		}
+		if (!folder) {
+			new Notice("Choose a target folder.");
+			return;
+		}
+		plugin.settings.extensionMapping[extension] = folder;
+		await plugin.saveSettings();
+		new Notice(`.${extension} files will be moved to ${folder}`);
+		if (renderCallback) await renderCallback();
+	};
+
+	const setting = new Setting(containerEl)
 		.setName("Add new extension mapping")
 		.setDesc("Add a new extension and target folder")
 		.addText((text) =>
 			text
 				.setPlaceholder("Enter extension (e.g., pdf)")
 				.onChange((value) => {
-					newExtension = value.trim();
+					newExtension = value;
 				})
-		)
-		.addSearch((search) => {
-			new FolderSuggest(app, search.inputEl);
-			search.setPlaceholder("Search folder...").onChange((folder) => {
-				newFolder = folder;
-			});
-		})
-		.addButton((btn) => {
-			btn.setButtonText("Add")
-				.setCta()
-				.onClick(async () => {
-					if (newExtension && newFolder) {
-						if (isValidExtension(newExtension)) {
-							plugin.settings.extensionMapping[newExtension] =
-								newFolder;
-							await plugin.saveSettings();
-							if (renderCallback) await renderCallback();
-						} else {
-							new Notice("The input is invalid.");
-						}
-					}
-				});
-		});
+		);
+	addFolderSearch(setting, app, {
+		onChange: (folder) => {
+			newFolder = folder;
+		},
+	});
+	setting.addButton((btn) => {
+		btn.setButtonText("Add").setCta().onClick(submit);
+	});
 }
