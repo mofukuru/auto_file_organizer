@@ -14,7 +14,7 @@ export function RenderPrioritySetting(
 				extension: "Extension first",
 				tag: "Tag first",
 			});
-			dropdown.setValue(plugin.settings.priority || "extension");
+			dropdown.setValue(plugin.settings.priority || "tag");
 			dropdown.onChange(async (value) => {
 				plugin.settings.priority = value;
 				await plugin.saveSettings();
@@ -25,4 +25,27 @@ export function RenderPrioritySetting(
 				);
 			});
 		});
+
+	new Setting(containerEl)
+		.setName("Only move new files in the vault root")
+		.setDesc(
+			"When on, newly created files are only moved if they are created in the vault root. " +
+				"Turn this on if you sync your vault or keep attachments in specific folders, " +
+				"so files that arrive in subfolders stay where they are."
+		)
+		.addToggle((toggle) =>
+			toggle.setValue(plugin.settings.rootOnly).onChange(async (value) => {
+				plugin.settings.rootOnly = value;
+				await plugin.saveSettings();
+			})
+		);
+
+	new Setting(containerEl)
+		.setName("Organize existing files")
+		.setDesc(
+			"Preview which files in the vault would be moved by the current rules, then confirm."
+		)
+		.addButton((btn) =>
+			btn.setButtonText("Preview").onClick(() => plugin.organizeVault())
+		);
 }

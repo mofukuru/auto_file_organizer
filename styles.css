@@ -1,8 +1,62 @@
-/*
+/* Collapsible lists in the settings tab */
+.afo-settings .afo-list > summary {
+	font-size: var(--font-ui-medium);
+	margin: var(--size-4-2) 0;
+	cursor: pointer;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.afo-settings .afo-list-empty,
+.afo-settings .afo-list-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	padding: var(--size-4-1) 0 var(--size-4-2);
+}
 
-If your plugin does not need CSS, delete this file.
+/* Suggestions */
+.afo-suggestion {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+}
 
-*/
+.afo-suggestion-hint {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	flex-shrink: 0;
+}
+
+/* "Organize files" preview */
+.afo-preview-list {
+	max-height: 50vh;
+	overflow-y: auto;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+}
+
+.afo-preview-row {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-2);
+	border-bottom: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+}
+
+.afo-preview-row:last-child {
+	border-bottom: none;
+}
+
+.afo-preview-text {
+	min-width: 0;
+	word-break: break-all;
+}
+
+.afo-preview-to,
+.afo-preview-more {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.afo-preview-more {
+	padding: var(--size-4-1) var(--size-4-2);
+}

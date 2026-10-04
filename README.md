@@ -20,6 +20,8 @@ your-vault-directory/.obsidian/plugins/auto_file_organizer/data.json
 
 Files newly added to the Vault are automatically moved to designated folders based on their extensions or tags.
 
+To organize files that already exist, run the **Organize files** command (or the **Preview** button in settings). You will see every planned move and can uncheck files before confirming.
+
 ---
 
 ## Installation
@@ -32,9 +34,9 @@ You can install it by searching for "Auto File Organizer" in the Community Plugi
 
 1. **Set Folder Mappings**:
    - Open the settings, and in the **Extension-to-Folder Mapping** section, input the extension (e.g., `txt`, `md`, etc.) and select the target folder.
-     **Do not include a period (".") in the extension.**
+     A leading period (".pdf") is removed automatically.
    - In the **Tag-to-Folder Mapping** section, input the tag (e.g., `#test`, `#project`, etc.) and select the target folder.
-     **Make sure to include a "#" at the beginning of the tag.**
+     The leading "#" is added automatically if omitted. When a note has several mapped tags, the rule higher in the list wins.
 
 2. **Edit Existing Mappings**:
    - You can edit or delete existing mappings from the list in the settings.
@@ -91,6 +93,19 @@ If you encounter any issues or have feature requests, please let us know by foll
 ---
 
 ## Changelog
+
+### 1.2.0
+
+- **Fix** ([#15](https://github.com/mofukuru/auto_file_organizer/issues/15)): Folder/tag suggestions were invisible when settings open in a separate window (default since Obsidian 1.13). Suggesters now use Obsidian's built-in `AbstractInputSuggest`.
+- **Critical fix** ([#14](https://github.com/mofukuru/auto_file_organizer/issues/14)): Existing files could be moved on startup because Obsidian fires `create` for every file while the vault loads. The `create` handler is now registered after the layout is ready.
+- **Safety**: The "Organize files" command now shows a preview of every move and lets you uncheck files before anything is touched.
+- **New**: "Only move new files in the vault root" option, recommended when you sync your vault.
+- **New** ([#4](https://github.com/mofukuru/auto_file_organizer/issues/4), [#9](https://github.com/mofukuru/auto_file_organizer/issues/9)): Tag rules are prioritized by their order in the tag mapping list (reorder with the arrow buttons). A note that already sits in the folder of one of its mapped tags is no longer moved when another tag is added.
+- **Improved** ([#8](https://github.com/mofukuru/auto_file_organizer/issues/8)): Tag and folder suggestions are ranked by relevance, and pressing Enter keeps what you typed instead of replacing it with the first suggestion. New folders are created on demand.
+- Moves now go through Obsidian's file manager, so internal links are updated according to your settings. A file is skipped (with a notice) if a file with the same name already exists in the target folder.
+- Auto mapping scans now map to the full folder path (previously only the folder name, which created new top-level folders) and pick the folder that holds most of the files.
+- Extensions are matched case-insensitively, and `.pdf` is accepted as input for `pdf`.
+- Settings UI: folder fields in the mapping lists use search with suggestions instead of a long dropdown, lists show item counts and empty states, and the excluded folder lists explain that they also protect files from being moved.
 
 ### 1.1.2
 

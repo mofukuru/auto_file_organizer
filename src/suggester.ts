@@ -1,107 +1,109 @@
+import { AbstractInputSuggest, App, TFolder, getAllTags } from "obsidian";
+
 /*
- * This code is adapted from [liamcain/obsidian-periodic-notes] (https://github.com/liamcain/obsidian-periodic-notes/tree/main)
- * under the MIT License.
- * Copyright (c) 2021 Liam Cain
+ * Suggesters built on Obsidian's AbstractInputSuggest, which renders the
+ * popover in the same window as the input. This keeps suggestions visible
+ * when settings are opened in a separate window (Obsidian 1.13+).
  */
 
-import { TAbstractFile, TFile, TFolder, getAllTags } from "obsidian";
-
-import { TextInputSuggestAutoSelection, TextInputSuggest } from "./suggest";
-
-export class FileSuggest extends TextInputSuggestAutoSelection<TFile> {
-    getSuggestions(inputStr: string): TFile[] {
-        const abstractFiles = this.app.vault.getAllLoadedFiles();
-        const files: TFile[] = [];
-        const lowerCaseInputStr = inputStr.toLowerCase();
-
-        abstractFiles.forEach((file: TAbstractFile) => {
-            if (
-                file instanceof TFile &&
-                file.extension === "md" &&
-                file.path.toLowerCase().contains(lowerCaseInputStr)
-            ) {
-                files.push(file);
-            }
-        });
-
-        return files;
-    }
-
-    renderSuggestion(file: TFile, el: HTMLElement): void {
-        el.setText(file.path);
-    }
-
-    selectSuggestion(file: TFile): void {
-        this.inputEl.value = file.path;
-        this.inputEl.trigger("input");
-        this.close();
-    }
+interface Suggestion {
+	value: string;
+	isNew: boolean;
 }
 
-export class FolderSuggest extends TextInputSuggestAutoSelection<TFolder> {
-    getSuggestions(inputStr: string): TFolder[] {
-        const abstractFiles = this.app.vault.getAllLoadedFiles();
-        const folders: TFolder[] = [];
-        const lowerCaseInputStr = inputStr.toLowerCase();
+// Prefix matches first, then matches at a path/tag segment, then the rest.
+function rankMatches(candidates: string[], query: string): string[] {
+	const q = query.toLowerCase();
+	const score = (candidate: string): number => {
+		const c = candidate.toLowerCase();
+		if (c.startsWith(q)) return 0;
+		if (c.includes("/" + q)) return 1;
+		return 2;
+	};
 
-        abstractFiles.forEach((folder: TAbstractFile) => {
-            if (
-                folder instanceof TFolder &&
-                folder.path.toLowerCase().contains(lowerCaseInputStr)
-            ) {
-                folders.push(folder);
-            }
-        });
-
-        return folders;
-    }
-
-    renderSuggestion(folder: TFolder, el: HTMLElement): void {
-        el.setText(folder.path);
-    }
-
-    // a mere bug that is not matter on the function
-    selectSuggestion(folder: TFolder): void {
-        if (folder.path === undefined) {
-            this.inputEl.value = "";
-        } else {
-            this.inputEl.value = folder.path;
-        }
-        this.inputEl.trigger("input");
-        this.close();
-    }
+	return candidates
+		.filter((c) => c.toLowerCase().includes(q))
+		.sort((a, b) => score(a) - score(b) || a.localeCompare(b));
 }
 
-export class TagSuggest extends TextInputSuggest<string> {
-    getSuggestions(inputStr: string): string[] {
-        const allFiles = this.app.vault.getFiles();
-        const tagSet = new Set<string>();
-        const lowerCaseInputStr = inputStr.toLowerCase();
-        for (const file of allFiles) {
-            const metadata = this.app.metadataCache.getFileCache(file);
-            if (!metadata) continue;
+abstract class TextSuggest extends AbstractInputSuggest<Suggestion> {
+	protected inputEl: HTMLInputElement;
 
-            const tags = getAllTags(metadata);
-            if (tags) {
-                tags.forEach(tag => {
-                    if (tag.toLowerCase().includes(lowerCaseInputStr)) {
-                        tagSet.add(tag);
-                    }
-                });
-            }
-        }
-        const allTags = Array.from(tagSet);
+	constructor(app: App, inputEl: HTMLInputElement) {
+		super(app, inputEl);
+		this.inputEl = inputEl;
+	}
 
-        return allTags;
-    }
+	protected abstract getCandidates(): string[];
+	protected abstract normalize(query: string): string;
+	protected abstract newItemHint: string;
 
-    renderSuggestion(tag: string, el: HTMLElement): void {
-        el.setText(tag);
-    }
+	protected getSuggestions(query: string): Suggestion[] {
+		const normalized = this.normalize(query);
+		const candidates = this.getCandidates();
+		const matches = rankMatches(candidates, normalized).map((value) => ({
+			value,
+			isNew: false,
+		}));
 
-    selectSuggestion(tag: string): void {
-        this.inputEl.value = tag;
-        this.inputEl.trigger("input");
-        this.close();
-    }
+		// Offer the typed value first so Enter keeps what the user typed
+		// instead of silently replacing it with the top suggestion.
+		const exists = candidates.some(
+			(c) => c.toLowerCase() === normalized.toLowerCase()
+		);
+		if (normalized && !exists) {
+			matches.unshift({ value: normalized, isNew: true });
+		}
+
+		return matches;
+	}
+
+	renderSuggestion(item: Suggestion, el: HTMLElement): void {
+		el.addClass("afo-suggestion");
+		el.createSpan({ text: item.value });
+		if (item.isNew) {
+			el.createSpan({ cls: "afo-suggestion-hint", text: this.newItemHint });
+		}
+	}
+
+	selectSuggestion(item: Suggestion): void {
+		this.setValue(item.value);
+		this.inputEl.trigger("input");
+		this.inputEl.trigger("change");
+		this.close();
+	}
+}
+
+export class FolderSuggest extends TextSuggest {
+	protected newItemHint = "new folder";
+
+	protected getCandidates(): string[] {
+		return this.app.vault
+			.getAllLoadedFiles()
+			.filter((f): f is TFolder => f instanceof TFolder && !f.isRoot())
+			.map((f) => f.path);
+	}
+
+	protected normalize(query: string): string {
+		return query.trim().replace(/^\/+|\/+$/g, "");
+	}
+}
+
+export class TagSuggest extends TextSuggest {
+	protected newItemHint = "new tag";
+
+	protected getCandidates(): string[] {
+		const tags = new Set<string>();
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (!cache) continue;
+			getAllTags(cache)?.forEach((tag) => tags.add(tag));
+		}
+		return Array.from(tags);
+	}
+
+	protected normalize(query: string): string {
+		const trimmed = query.trim().replace(/^#+/, "");
+		return trimmed ? "#" + trimmed : "";
+	}
 }

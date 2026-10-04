@@ -1,12 +1,22 @@
-import { Plugin, TFile, Notice, getAllTags } from "obsidian";
+import {
+	Notice,
+	Plugin,
+	TAbstractFile,
+	TFile,
+	getAllTags,
+	normalizePath,
+} from "obsidian";
 import { AutoFileOrganizerSettingTab } from "./setting";
+import { OrganizePreviewModal } from "./organize-modal";
 
-interface AutoFileOrganizerSettings {
+export interface AutoFileOrganizerSettings {
 	tagEnabled: boolean;
 	extensionEnabled: boolean;
 	priority: string;
+	// Only move files that sit in the vault root automatically
+	rootOnly: boolean;
 	extensionMapping: Record<string, string>; // mapping from extension to folder
-	tagMapping: Record<string, string>; // mapping from tag to folder
+	tagMapping: Record<string, string>; // mapping from tag to folder; earlier entries win
 	extensionBlackList: Record<string, string>;
 	extensionFolderBlackList: Record<string, string>;
 	tagBlackList: Record<string, string>;
@@ -16,6 +26,7 @@ const DEFAULT_SETTINGS: AutoFileOrganizerSettings = {
 	tagEnabled: false,
 	extensionEnabled: false,
 	priority: "tag",
+	rootOnly: false,
 	extensionMapping: {},
 	tagMapping: {},
 	extensionBlackList: {},
@@ -23,174 +34,163 @@ const DEFAULT_SETTINGS: AutoFileOrganizerSettings = {
 	tagBlackList: {},
 };
 
+export interface PlannedMove {
+	file: TFile;
+	targetFolder: string;
+}
+
+// "/foo/bar/" -> "foo/bar", "/" -> ""
+export function normalizeFolder(path: string): string {
+	const normalized = normalizePath(path.trim());
+	return normalized === "/" ? "" : normalized.replace(/^\/+|\/+$/g, "");
+}
+
+function parentPath(file: TFile): string {
+	return normalizeFolder(file.parent?.path ?? "");
+}
+
+function isInRoot(file: TAbstractFile): boolean {
+	return !file.path.includes("/");
+}
+
 export default class AutoFileOrganizer extends Plugin {
 	settings: AutoFileOrganizerSettings;
 
 	async onload() {
-		console.log("Auto File Organizer loaded!");
-
 		await this.loadSettings();
 		this.addSettingTab(new AutoFileOrganizerSettingTab(this.app, this));
 
-		this.registerEvent(
-			this.app.vault.on("create", async (file: TFile) => {
-				if (
-					Object.keys(this.settings.extensionMapping).length > 0 ||
-					Object.keys(this.settings.tagMapping).length > 0
-				) {
+		// vault "create" also fires for every existing file while the vault
+		// loads, so only start listening once the layout is ready. Otherwise
+		// already-organized files get moved on startup.
+		this.app.workspace.onLayoutReady(() => {
+			this.registerEvent(
+				this.app.vault.on("create", async (file) => {
+					if (!(file instanceof TFile)) return;
+					if (this.settings.rootOnly && !isInRoot(file)) return;
 					await this.handleFile(file);
-				} else {
-					console.log(
-						"No folder mapping defined. Skipping file organization."
-					);
-				}
-			})
-		);
+				})
+			);
+		});
 
 		this.registerEvent(
-			this.app.vault.on("rename", async (file: TFile, oldPath) => {
-				if (!(file instanceof TFile)) return;
-
-				const isInRoot = !file.path.includes("/");
-				if (!isInRoot) return;
-
+			this.app.vault.on("rename", async (file) => {
+				if (!(file instanceof TFile) || !isInRoot(file)) return;
 				await this.handleFile(file);
 			})
 		);
 
 		this.registerEvent(
-			this.app.metadataCache.on("changed", async (file: TFile) => {
-				if (!(file instanceof TFile)) return;
+			this.app.metadataCache.on("changed", async (file) => {
 				// Only process files in vault root; already-organized files should not be re-moved
-				const isInRoot = !file.path.includes("/");
-				if (!isInRoot) return;
+				if (!isInRoot(file)) return;
 				await this.handleFile(file);
 			})
 		);
 
 		this.addCommand({
 			id: "organize-files",
-			name: "Organize Files",
-			callback: async () => {
-				await this.organizeVault();
-				new Notice("Files organized");
-			},
+			name: "Organize files",
+			callback: () => this.organizeVault(),
 		});
 	}
 
-	async handleFile(file: TFile): Promise<string | null> {
-		if (!(file instanceof TFile)) return null;
+	isInExcludedFolder(file: TFile): boolean {
+		const folderPath = parentPath(file);
+		const keys = [
+			...Object.keys(this.settings.extensionFolderBlackList ?? {}),
+			...Object.keys(this.settings.tagBlackList ?? {}),
+		]
+			.map(normalizeFolder)
+			.filter((key) => key !== "");
 
-		const originalPath = file.path;
+		return keys.some(
+			(key) => folderPath === key || folderPath.startsWith(key + "/")
+		);
+	}
 
-		// Skip if the file is under any blacklisted folder (global guard)
-		const isInBlacklistedFolder = (filePath: string): boolean => {
-			const lastSlash = filePath.lastIndexOf("/");
-			const folderPath = lastSlash >= 0 ? filePath.substring(0, lastSlash) : "";
+	getTargetFolderByTag(file: TFile): string | null {
+		if (!this.settings.tagEnabled) return null;
 
-			const matchesBlacklist = (blacklist: Record<string, string>): boolean =>
-				Object.keys(blacklist).some(
-					(key) => folderPath === key || folderPath.startsWith(key + "/")
-				);
+		const cache = this.app.metadataCache.getFileCache(file);
+		if (!cache) return null;
 
-			return (
-				(!!this.settings.extensionFolderBlackList &&
-					matchesBlacklist(this.settings.extensionFolderBlackList)) ||
-				(!!this.settings.tagBlackList &&
-					matchesBlacklist(this.settings.tagBlackList))
-			);
-		};
+		const fileTags = new Set(
+			(getAllTags(cache) ?? []).map((tag) => tag.toLowerCase())
+		);
+		if (fileTags.size === 0) return null;
 
-		if (isInBlacklistedFolder(file.path)) {
-			// Do not move files that reside in blacklisted folders or their subfolders
+		// Rules are evaluated in the order of the mapping list in settings.
+		const folders = Object.entries(this.settings.tagMapping)
+			.filter(([tag]) => fileTags.has(tag.toLowerCase()))
+			.map(([, folder]) => normalizeFolder(folder));
+		if (folders.length === 0) return null;
+
+		// If the note already sits in a folder of any matching rule, keep it
+		// there instead of bouncing it around when another tag is added.
+		const current = parentPath(file);
+		return folders.includes(current) ? current : folders[0];
+	}
+
+	getTargetFolderByExtension(file: TFile): string | null {
+		if (!this.settings.extensionEnabled) return null;
+
+		const mapping = this.settings.extensionMapping;
+		const folder =
+			mapping[file.extension] ?? mapping[file.extension.toLowerCase()];
+		return folder ? normalizeFolder(folder) : null;
+	}
+
+	getTargetFolder(file: TFile): string | null {
+		if (this.isInExcludedFolder(file)) return null;
+
+		const byTag = () => this.getTargetFolderByTag(file);
+		const byExtension = () => this.getTargetFolderByExtension(file);
+
+		return this.settings.priority === "extension"
+			? byExtension() ?? byTag()
+			: byTag() ?? byExtension();
+	}
+
+	planMove(file: TFile): PlannedMove | null {
+		const targetFolder = this.getTargetFolder(file);
+		if (targetFolder === null || targetFolder === parentPath(file)) {
 			return null;
 		}
+		return { file, targetFolder };
+	}
 
-		// move by tag
-		const moveByTag = async (): Promise<boolean> => {
-			if (!this.settings.tagEnabled) return false;
+	async handleFile(file: TFile): Promise<boolean> {
+		const plan = this.planMove(file);
+		return plan ? this.moveFile(plan) : false;
+	}
 
-			const metadata = this.app.metadataCache.getFileCache(file);
-			if (!metadata) {
-				console.log(`No metadata found for file: ${file.path}`);
-				return false;
-			}
+	async moveFile({ file, targetFolder }: PlannedMove): Promise<boolean> {
+		const targetPath = normalizePath(
+			targetFolder ? `${targetFolder}/${file.name}` : file.name
+		);
 
-			const tags = getAllTags(metadata);
-			if (tags && tags.length > 0) {
-				for (const tag of tags) {
-					const targetFolder = this.settings.tagMapping[tag];
-					if (targetFolder) {
-						await this.ensureFolderExists(targetFolder);
-						const targetPath = `${targetFolder}/${file.name}`;
-						if (originalPath !== targetPath) {
-							try {
-								await this.app.vault.rename(file, targetPath);
-								return true; // move success
-							} catch (err) {
-								console.error(
-									`Failed to move file ${file.name} by tag:`,
-									err
-								);
-							}
-						} else {
-							console.log(
-								`File ${file.name} already in correct folder for tag ${tag}`
-							);
-						}
-					}
-				}
-			}
-			return false; // no move
-		};
+		if (this.app.vault.getAbstractFileByPath(targetPath)) {
+			new Notice(
+				`Auto File Organizer: "${file.name}" was not moved because "${targetPath}" already exists.`
+			);
+			return false;
+		}
 
-	// move by extension
-	const moveByExtension = async (): Promise<boolean> => {
-		if (!this.settings.extensionEnabled) return false;
-
-		const extension = file.extension;
-		const targetFolder = this.settings.extensionMapping[extension];
-		if (targetFolder) {
+		try {
 			await this.ensureFolderExists(targetFolder);
-			const targetPath = `${targetFolder}/${file.name}`;
-			if (originalPath !== targetPath) {
-				try {
-					await this.app.vault.rename(file, targetPath);
-					return true; // move success
-				} catch (err) {
-					console.error(
-						`Failed to move file ${file.name} by extension:`,
-						err
-					);
-				}
-			} else {
-				console.log(
-					`File ${file.name} already in correct folder for extension ${extension}`
-				);
-			}
+			// fileManager.renameFile updates links according to the user's settings.
+			await this.app.fileManager.renameFile(file, targetPath);
+			return true;
+		} catch (err) {
+			console.error(`Auto File Organizer: failed to move ${file.path}`, err);
+			return false;
 		}
-		return false; // no move
-	};		// priority
-		if (this.settings.priority === "tag") {
-			const movedByTag = await moveByTag();
-			if (movedByTag) return file.name;
-
-			const movedByExtension = await moveByExtension();
-			return movedByExtension ? file.name : null;
-		} else if (this.settings.priority === "extension") {
-			const movedByExtension = await moveByExtension();
-			if (movedByExtension) return file.name;
-
-			const movedByTag = await moveByTag();
-			return movedByTag ? file.name : null;
-		}
-
-		console.log(`No suitable folder mapping found for file: ${file.name}`);
-		return null; // no file moved
 	}
 
 	async ensureFolderExists(folderPath: string) {
-		if (!(await this.app.vault.adapter.exists(folderPath))) {
+		if (!folderPath) return;
+		if (!this.app.vault.getAbstractFileByPath(folderPath)) {
 			await this.app.vault.createFolder(folderPath);
 		}
 	}
@@ -207,138 +207,118 @@ export default class AutoFileOrganizer extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async organizeVault() {
-		const files = this.app.vault.getFiles();
-		const movedFiles: string[] = [];
+	organizeVault() {
+		const moves = this.app.vault
+			.getFiles()
+			.map((file) => this.planMove(file))
+			.filter((plan): plan is PlannedMove => plan !== null);
 
-		const promises = files.map(async (file) => {
-			const moved = await this.handleFile(file);
-			if (moved) {
-				movedFiles.push(moved);
-			}
-		});
-
-		await Promise.all(promises);
-
-		// notice of diff
-		if (movedFiles.length > 0) {
-			new Notice(
-				`Moved ${movedFiles.length} files:\n${movedFiles.join(", ")}`
-			);
-		} else {
-			new Notice("No files were moved.");
+		if (moves.length === 0) {
+			new Notice("All files are already organized.");
+			return;
 		}
+
+		new OrganizePreviewModal(this.app, moves, async (selected) => {
+			let moved = 0;
+			// Sequential on purpose: parallel renames race on folder creation.
+			for (const plan of selected) {
+				if (await this.moveFile(plan)) moved++;
+			}
+			const skipped = selected.length - moved;
+			new Notice(
+				`Moved ${moved} file${moved === 1 ? "" : "s"}` +
+					(skipped > 0 ? ` (${skipped} skipped)` : "") +
+					"."
+			);
+		}).open();
 	}
 
-	//* New: build extension -> folder mapping but skip extensions present in extensionBlackList
+	// Picks the folder that holds the most files for each key.
+	private mostCommonFolder(
+		counts: Record<string, Record<string, number>>
+	): Record<string, string> {
+		const result: Record<string, string> = {};
+		for (const [key, folders] of Object.entries(counts)) {
+			result[key] = Object.entries(folders).sort(
+				(a, b) => b[1] - a[1]
+			)[0][0];
+		}
+		return result;
+	}
+
+	private isUnder(folderPath: string, blacklist: Record<string, string>) {
+		return Object.keys(blacklist ?? {})
+			.map(normalizeFolder)
+			.filter((key) => key !== "")
+			.some((key) => folderPath === key || folderPath.startsWith(key + "/"));
+	}
+
+	// Build extension -> folder mapping but skip extensions present in extensionBlackList
 	async updateExtensionMappingFromExistingFiles() {
-		const allFiles = this.app.vault.getFiles();
-		const extensionToFolderMap: Record<string, string> = {};
+		const counts: Record<string, Record<string, number>> = {};
 
-		for (const file of allFiles) {
+		for (const file of this.app.vault.getFiles()) {
 			const extension = file.extension;
-			if (!extension) continue;
-
-			// skip if extension is blacklisted
+			const folder = parentPath(file);
 			if (
-				this.settings.extensionBlackList &&
-				this.settings.extensionBlackList[extension]
+				!extension ||
+				!folder ||
+				this.settings.extensionBlackList?.[extension] ||
+				this.settings.extensionMapping[extension] ||
+				this.isUnder(folder, this.settings.extensionFolderBlackList)
 			) {
 				continue;
 			}
-
-			const folderName =
-				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
-				"DefaultFolder";
-
-			const lastSlash = file.path.lastIndexOf("/");
-			const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
-			const isBlacklisted = Object.keys(
-				this.settings.extensionFolderBlackList || {}
-			).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
-
-			if (!extensionToFolderMap[extension] && !isBlacklisted && !this.settings.extensionMapping[extension]) {
-				extensionToFolderMap[extension] = folderName;
-			}
+			counts[extension] ??= {};
+			counts[extension][folder] = (counts[extension][folder] ?? 0) + 1;
 		}
 
+		const added = this.mostCommonFolder(counts);
 		this.settings.extensionMapping = {
 			...this.settings.extensionMapping,
-			...extensionToFolderMap,
+			...added,
 		};
 
 		await this.saveSettings();
+		const n = Object.keys(added).length;
 		new Notice(
-			`update extension mapping (excluding blacklisted extensions)`
+			n > 0
+				? `Added ${n} extension mapping${n === 1 ? "" : "s"}.`
+				: "No new extension mappings found."
 		);
 	}
 
-	async updateExtensionFolderMappingFromExistingFiles() {
-		const allFiles = this.app.vault.getFiles();
-		const extensionToFolderMap: Record<string, string> = {};
-
-		for (const file of allFiles) {
-			const extension = file.extension;
-			if (!extension) continue;
-
-			const folderName =
-				this.app.vault.getAbstractFileByPath(file.path)?.parent?.name ||
-				"DefaultFolder";
-
-			const lastSlash = file.path.lastIndexOf("/");
-			const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
-			const isBlacklisted = Object.keys(
-				this.settings.extensionFolderBlackList || {}
-			).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
-
-			if (!extensionToFolderMap[extension] && !isBlacklisted && !this.settings.extensionMapping[extension]) {
-				extensionToFolderMap[extension] = folderName;
-			}
-		}
-
-		this.settings.extensionMapping = {
-			...this.settings.extensionMapping,
-			...extensionToFolderMap,
-		};
-
-		await this.saveSettings();
-		new Notice(`update extension-to-folder mapping`);
-	}
-
 	async updateTagMappingFromExistingFiles() {
-		const allFiles = this.app.vault.getFiles();
-		const tagToFolderMap: Record<string, string> = {};
+		const counts: Record<string, Record<string, number>> = {};
 
-		for (const file of allFiles) {
-			const metadata = this.app.metadataCache.getFileCache(file);
-			if (!metadata) continue;
+		for (const file of this.app.vault.getMarkdownFiles()) {
+			const folder = parentPath(file);
+			if (!folder || this.isUnder(folder, this.settings.tagBlackList)) {
+				continue;
+			}
 
-			const tags = getAllTags(metadata);
-			if (tags && tags.length > 0) {
-				for (const tag of tags) {
-					const folderName =
-						this.app.vault.getAbstractFileByPath(file.path)?.parent
-							?.name || "DefaultFolder";
-					
-					const lastSlash = file.path.lastIndexOf("/");
-					const folderPath = lastSlash >= 0 ? file.path.substring(0, lastSlash) : "";
-					const isBlacklisted = Object.keys(
-						this.settings.tagBlackList || {}
-					).some((key) => folderPath === key || folderPath.startsWith(key + "/"));
-					
-					if (!tagToFolderMap[tag] && !isBlacklisted && !this.settings.tagMapping[tag]) {
-						tagToFolderMap[tag] = folderName;
-					}
-				}
+			const cache = this.app.metadataCache.getFileCache(file);
+			if (!cache) continue;
+
+			for (const tag of new Set(getAllTags(cache) ?? [])) {
+				if (this.settings.tagMapping[tag]) continue;
+				counts[tag] ??= {};
+				counts[tag][folder] = (counts[tag][folder] ?? 0) + 1;
 			}
 		}
 
+		const added = this.mostCommonFolder(counts);
 		this.settings.tagMapping = {
 			...this.settings.tagMapping,
-			...tagToFolderMap,
+			...added,
 		};
 
 		await this.saveSettings();
-		new Notice(`update tag-to-folder mapping.`);
+		const n = Object.keys(added).length;
+		new Notice(
+			n > 0
+				? `Added ${n} tag mapping${n === 1 ? "" : "s"}.`
+				: "No new tag mappings found."
+		);
 	}
 }
