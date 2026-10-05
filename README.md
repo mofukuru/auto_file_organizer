@@ -96,12 +96,12 @@ If you encounter any issues or have feature requests, please let us know by foll
 
 ### 1.2.0
 
-- **Fix** ([#15](https://github.com/mofukuru/auto_file_organizer/issues/15)): Folder/tag suggestions were invisible when settings open in a separate window (default since Obsidian 1.13). Suggesters now use Obsidian's built-in `AbstractInputSuggest`.
-- **Critical fix** ([#14](https://github.com/mofukuru/auto_file_organizer/issues/14)): Existing files could be moved on startup because Obsidian fires `create` for every file while the vault loads. The `create` handler is now registered after the layout is ready.
+- **Fix** ([#15](https://github.com/mofukuru/auto-file-organizer/issues/15)): Folder/tag suggestions were invisible when settings open in a separate window (default since Obsidian 1.13). Suggesters now use Obsidian's built-in `AbstractInputSuggest`.
+- **Critical fix** ([#14](https://github.com/mofukuru/auto-file-organizer/issues/14)): Existing files could be moved on startup because Obsidian fires `create` for every file while the vault loads. The `create` handler is now registered after the layout is ready.
 - **Safety**: The "Organize files" command now shows a preview of every move and lets you uncheck files before anything is touched.
 - **New**: "Only move new files in the vault root" option, recommended when you sync your vault.
-- **New** ([#4](https://github.com/mofukuru/auto_file_organizer/issues/4), [#9](https://github.com/mofukuru/auto_file_organizer/issues/9)): Tag rules are prioritized by their order in the tag mapping list (reorder with the arrow buttons). A note that already sits in the folder of one of its mapped tags is no longer moved when another tag is added.
-- **Improved** ([#8](https://github.com/mofukuru/auto_file_organizer/issues/8)): Tag and folder suggestions are ranked by relevance, and pressing Enter keeps what you typed instead of replacing it with the first suggestion. New folders are created on demand.
+- **New** ([#4](https://github.com/mofukuru/auto-file-organizer/issues/4), [#9](https://github.com/mofukuru/auto-file-organizer/issues/9)): Tag rules are prioritized by their order in the tag mapping list (reorder with the arrow buttons). A note that already sits in the folder of one of its mapped tags is no longer moved when another tag is added.
+- **Improved** ([#8](https://github.com/mofukuru/auto-file-organizer/issues/8)): Tag and folder suggestions are ranked by relevance, and pressing Enter keeps what you typed instead of replacing it with the first suggestion. New folders are created on demand.
 - Moves now go through Obsidian's file manager, so internal links are updated according to your settings. A file is skipped (with a notice) if a file with the same name already exists in the target folder.
 - Auto mapping scans now map to the full folder path (previously only the folder name, which created new top-level folders) and pick the folder that holds most of the files.
 - Extensions are matched case-insensitively, and `.pdf` is accepted as input for `pdf`.
