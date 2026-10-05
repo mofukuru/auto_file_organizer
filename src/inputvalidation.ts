@@ -17,7 +17,7 @@ export function getSanitizedExtension(input: string): string {
 // }
 
 /*
- * The code below is partially adopted from (https://github.com/mofukuru/auto_file_organizer/issues/8) by vecerap.
+ * The code below is partially adopted from (https://github.com/mofukuru/auto-file-organizer/issues/8) by vecerap.
  */
 
 export function getSanitizedTag(input: string): string {
